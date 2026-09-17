@@ -1,0 +1,44 @@
+# ARCHITECTURE.md — Factory Tasks
+
+## In plain English
+
+Factory Tasks is one file: `index.html`. That single file contains the
+page's layout, its styling, and its logic, all together. When you open it
+in a browser, everything the app needs is already inside it — nothing else
+is downloaded or contacted.
+
+When you add, check off, or delete a task, the app writes the current list
+of tasks into a small storage locker built into your browser (this is called
+`localStorage`). Next time you open the page in that same browser, it reads
+the list back out. There is no server involved and no internet connection
+required after the page has loaded once.
+
+Think of it like a sticky note pad that lives inside your browser, on your
+one device.
+
+## Technical detail
+
+- **Language:** HTML, CSS, and vanilla JavaScript (no framework, no build step, no npm packages)
+- **File:** `index.html` — self-contained
+- **Storage:** Browser `localStorage`, under the key `factory-tasks-v1`
+- **Data shape:** an array of task objects, each `{ id, text, done }`
+- **No backend, no API, no database**
+- **Deployment target (future phase):** any static file host (e.g. Vercel) — because
+  the app is just one static file, deployment is "upload the file," nothing more
+
+## Why this architecture
+
+This is the simplest architecture that can support the required features
+(add / complete / delete) while staying:
+- Free to run
+- Trivial for an AI coding agent to read in full and edit safely
+- Free of hidden failure points (no server to crash, no API to time out, no
+  database to misconfigure)
+
+## What would change this architecture
+
+Only a deliberate, owner-approved decision to add one of the PRODUCT.md
+"out of scope" items should introduce a backend, a database, or a framework.
+Until then, all future work should stay inside this single-file model
+(or split into a small number of plain files if `index.html` becomes too
+large to read comfortably — see AGENTS.md).
