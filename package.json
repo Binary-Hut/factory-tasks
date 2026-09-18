@@ -1,0 +1,9 @@
+{
+  "name": "factory-tasks",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Factory Tasks - simple task manager (see PRODUCT.md)",
+  "devDependencies": {
+    "@playwright/test": "^1.47.0"
+  }
+}
