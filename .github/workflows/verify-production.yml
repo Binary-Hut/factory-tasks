@@ -3,11 +3,13 @@ name: Verify Production Site
 on:
   push:
     branches: [ main ]
+
   workflow_dispatch:
 
 jobs:
   verify-production:
     runs-on: ubuntu-latest
+
     steps:
       - name: Get the code
         uses: actions/checkout@v4
@@ -15,16 +17,16 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
 
       - name: Install test tools
         run: npm install
 
-      - name: Install browser for testing
+      - name: Install Chromium
         run: npx playwright install --with-deps chromium
 
-      - name: Wait for Vercel to finish deploying
+      - name: Wait for Vercel deployment
         run: sleep 45
 
-      - name: Test the real live website
+      - name: Test the live production site only
         run: npx playwright test tests/production.spec.js
