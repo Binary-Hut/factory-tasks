@@ -80,12 +80,16 @@ jobs:
 
             Read only what you need:
             1. .codex-failure.log
-            2. AGENTS.md
-            3. PRODUCT.md
-            4. the failing test file
-            5. the application file directly related to that test
+            2. AI_POLICY.md
+            3. AGENTS.md
+            4. PRODUCT.md
+            5. the failing test file
+            6. the application file directly related to that test
 
             Rules:
+            - Follow AI_POLICY.md exactly.
+            - This workflow permits only ONE automatic AI repair attempt.
+            - Do not escalate to another model.
             - Make the smallest reasonable fix.
             - No general code review.
             - No refactoring unrelated code.
