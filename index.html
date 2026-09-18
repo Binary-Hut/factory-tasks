@@ -225,7 +225,7 @@
     }
 
     function deleteTask(id) {
-      tasks = []; // BUG: this deletes ALL tasks instead of just one
+      tasks = tasks.filter((t) => t.id !== id);
       saveTasks(tasks);
       render();
     }
