@@ -1,0 +1,49 @@
+name: Codex Auto-Fix on Failure
+
+on:
+  workflow_run:
+    workflows: ["Run Tests"]
+    types: [completed]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-fix:
+    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check API key is available
+        run: |
+          if [ -z "${{ secrets.OPENAI_API_KEY }}" ]; then
+            echo "OPENAI_API_KEY secret is not set. Skipping auto-fix." >&2
+            exit 1
+          fi
+
+      - name: Get the code from the failing commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Run Codex to diagnose and fix the failure
+        uses: openai/codex-action@main
+        with:
+          openai_api_key: ${{ secrets.OPENAI_API_KEY }}
+          prompt: |
+            This repository is "Factory Tasks", a very simple single-file
+            task manager (index.html only, no framework, no backend).
+            Read AGENTS.md and PRODUCT.md first and follow their rules
+            strictly - especially: do not add frameworks, backends,
+            authentication, or any of the other out-of-scope items listed
+            there.
+
+            The GitHub Actions workflow "Run Tests" just failed on this
+            commit. Run the test suite yourself (npm install, then
+            npx playwright install --with-deps chromium, then
+            npx playwright test), read the failure output, identify the
+            minimal code change needed to make all tests pass, and apply
+            only that change. Do not refactor unrelated code. Do not add
+            new files unless strictly necessary. Open a pull request with
+            the fix and a clear description of what was wrong and what
+            you changed.
