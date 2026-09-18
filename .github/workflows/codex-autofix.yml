@@ -41,9 +41,22 @@ jobs:
             The GitHub Actions workflow "Run Tests" just failed on this
             commit. Run the test suite yourself (npm install, then
             npx playwright install --with-deps chromium, then
-            npx playwright test), read the failure output, identify the
-            minimal code change needed to make all tests pass, and apply
-            only that change. Do not refactor unrelated code. Do not add
-            new files unless strictly necessary. Open a pull request with
-            the fix and a clear description of what was wrong and what
-            you changed.
+            npx playwright test), read the failure output, and apply the
+            minimal code change needed to make all tests pass. Do not
+            refactor unrelated code. Do not add new files unless strictly
+            necessary. Just edit the files - do not attempt to commit,
+            push, or open a pull request yourself.
+
+      - name: Save the fix as a pull request
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: codex-autofix/${{ github.event.workflow_run.head_sha }}
+          title: "Automatic fix for failing tests"
+          body: |
+            This pull request was created automatically after the
+            "Run Tests" workflow failed on commit
+            ${{ github.event.workflow_run.head_sha }}.
+
+            Please review the change carefully before merging.
+          commit-message: "Auto-fix: resolve failing tests"
