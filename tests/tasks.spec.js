@@ -50,4 +50,6 @@ test('deleting one task does not delete others', async ({ page }) => {
   await expect(page.locator('.task-text', { hasText: 'Task A' })).toBeVisible();
   await expect(page.locator('.task-text', { hasText: 'Task C' })).toBeVisible();
   await expect(page.locator('.task-text', { hasText: 'Task B' })).toHaveCount(0);
+  await page.reload();
+  await expect(page.locator('.task-text')).toHaveText(['Task A', 'Task C']);
 });
