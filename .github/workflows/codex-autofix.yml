@@ -51,6 +51,7 @@ jobs:
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          base: main
           branch: codex-autofix/${{ github.event.workflow_run.head_sha }}
           title: "Automatic fix for failing tests"
           body: |
