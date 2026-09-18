@@ -4,6 +4,9 @@ This file is for any AI coding agent (Claude, GPT, Gemini, etc.) making
 changes to this repository. Follow these rules exactly. The owner is
 non-technical and relies on these rules to keep the project safe and simple.
 
+Before doing any work, read `AI_POLICY.md`. Its cost, retry, escalation, and
+multi-agent limits are mandatory and take precedence for AI automation.
+
 ## Hard rules — never do these without explicit owner approval
 
 - Do not add authentication, login, or user accounts
@@ -24,6 +27,7 @@ non-technical and relies on these rules to keep the project safe and simple.
   count small and explain why in the pull request / change description
 - Write plain, readable code. Add comments only where they genuinely help
   understanding — do not over-comment
+- Before making a change, check AI_POLICY.md for cost/retry/safety limits
 - Before making a change, check PRODUCT.md to confirm the change is in scope
 - Before making an architectural change, check ARCHITECTURE.md
 - After making a change, update ROADMAP.md if a phase was completed
