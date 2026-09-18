@@ -1,5 +1,6 @@
 name: Codex Auto-Fix on Failure
 
+# Run this workflow only after the normal source-code test workflow finishes.
 on:
   workflow_run:
     workflows: ["Run Tests"]
@@ -8,56 +9,196 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  actions: read
 
 jobs:
   auto-fix:
-    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+
+    # Codex should run only when:
+    # 1. The test workflow actually failed.
+    # 2. The failure came from main.
+    #
+    # This prevents Codex from repeatedly trying to repair its own repair PR.
+    if: >
+      github.event.workflow_run.conclusion == 'failure' &&
+      github.event.workflow_run.head_branch == 'main'
+
     runs-on: ubuntu-latest
+
     steps:
-      - name: Check API key is available
+
+      # ------------------------------------------------------------
+      # 1. Make sure the OpenAI API key exists
+      # ------------------------------------------------------------
+      - name: Check OpenAI API key
         run: |
           if [ -z "${{ secrets.OPENAI_API_KEY }}" ]; then
-            echo "OPENAI_API_KEY secret is not set. Skipping auto-fix." >&2
+            echo "OPENAI_API_KEY is not configured." >&2
             exit 1
           fi
 
-      - name: Get the code from the failing commit
+      # ------------------------------------------------------------
+      # 2. Check out exactly the commit that failed
+      # ------------------------------------------------------------
+      - name: Get failing code
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
 
-      - name: Run Codex to diagnose and fix the failure
-        uses: openai/codex-action@main
+      # ------------------------------------------------------------
+      # 3. Give Codex the existing GitHub test failure
+      #
+      # This is important for cost control.
+      #
+      # Previously Codex was instructed to:
+      # - npm install
+      # - install Chromium
+      # - run every Playwright test again
+      #
+      # GitHub has ALREADY run those tests.
+      # We reuse that failure information instead.
+      # ------------------------------------------------------------
+      - name: Collect failed test output
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FAILED_RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          echo "Collecting failure details from GitHub Actions..."
+
+          gh run view "$FAILED_RUN_ID" \
+            --repo "${{ github.repository }}" \
+            --log-failed \
+            | tail -n 250 > .codex-failure.log
+
+          echo "Failure information collected."
+
+      # ------------------------------------------------------------
+      # 4. Ask a CHEAPER Codex model to make the smallest possible fix
+      #
+      # Cost controls:
+      #
+      # - Explicit cheaper model
+      # - Low reasoning effort
+      # - Concise failure log supplied in advance
+      # - No broad code review
+      # - No architecture work
+      # - No unnecessary test reruns
+      # - No refactoring
+      # ------------------------------------------------------------
+      - name: Ask Codex for minimal fix
+        uses: openai/codex-action@v1
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+
+          # Do NOT leave this empty.
+          # Otherwise Codex may choose a more expensive default model.
+          model: gpt-5-mini
+
+          # Keep routine bug fixes inexpensive.
+          effort: low
+
+          # Codex needs permission to edit files in the repository.
+          permission-profile: ":workspace"
+
           prompt: |
-            This repository is "Factory Tasks", a very simple single-file
-            task manager (index.html only, no framework, no backend).
-            Read AGENTS.md and PRODUCT.md first and follow their rules
-            strictly - especially: do not add frameworks, backends,
-            authentication, or any of the other out-of-scope items listed
-            there.
+            You are a low-cost automated bug-fixing agent for the
+            "Factory Tasks" learning project.
 
-            The GitHub Actions workflow "Run Tests" just failed on this
-            commit. Run the test suite yourself (npm install, then
-            npx playwright install --with-deps chromium, then
-            npx playwright test), read the failure output, and apply the
-            minimal code change needed to make all tests pass. Do not
-            refactor unrelated code. Do not add new files unless strictly
-            necessary. Just edit the files - do not attempt to commit,
-            push, or open a pull request yourself.
+            Your job is ONLY to repair the specific automated test failure.
 
-      - name: Save the fix as a pull request
+            IMPORTANT COST AND SCOPE RULES:
+
+            1. Do not perform a general code review.
+            2. Do not redesign the application.
+            3. Do not refactor unrelated code.
+            4. Do not add features.
+            5. Do not add dependencies.
+            6. Do not add frameworks.
+            7. Do not add backend services.
+            8. Do not add databases.
+            9. Do not change architecture unless absolutely required.
+            10. Make the smallest reasonable change that fixes the failure.
+
+            First read:
+
+            - .codex-failure.log
+            - AGENTS.md
+            - PRODUCT.md
+
+            Then inspect ONLY the files relevant to the failing test.
+
+            The repository is intentionally tiny.
+
+            Factory Tasks is currently a simple task manager built primarily
+            in index.html.
+
+            The existing GitHub test run has ALREADY provided the failure
+            information in .codex-failure.log.
+
+            Therefore:
+
+            DO NOT run npm install.
+            DO NOT install Playwright.
+            DO NOT install Chromium.
+            DO NOT run the entire test suite by default.
+
+            First diagnose the failure using the supplied failure log,
+            relevant test file, and relevant application code.
+
+            If the cause is clear, apply the minimal fix immediately.
+
+            You may run a very small targeted check only if genuinely
+            necessary to understand the failure.
+
+            Do not commit.
+            Do not push.
+            Do not create a pull request.
+
+            Simply edit the necessary repository file or files.
+
+            When finished, stop.
+
+      # ------------------------------------------------------------
+      # 5. Remove temporary diagnostic information
+      #
+      # We don't want the GitHub failure log included in the PR.
+      # ------------------------------------------------------------
+      - name: Remove temporary failure log
+        if: always()
+        run: rm -f .codex-failure.log
+
+      # ------------------------------------------------------------
+      # 6. Create a PR containing Codex's fix
+      #
+      # The normal Run Tests workflow will test this PR.
+      # Codex does not need to duplicate those tests itself.
+      # ------------------------------------------------------------
+      - name: Create repair pull request
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          base: main
-          branch: codex-autofix/${{ github.event.workflow_run.head_sha }}
-          title: "Automatic fix for failing tests"
-          body: |
-            This pull request was created automatically after the
-            "Run Tests" workflow failed on commit
-            ${{ github.event.workflow_run.head_sha }}.
 
-            Please review the change carefully before merging.
+          base: main
+
+          branch: codex-autofix/${{ github.event.workflow_run.head_sha }}
+
+          title: "Automatic fix for failing tests"
+
           commit-message: "Auto-fix: resolve failing tests"
+
+          body: |
+            ## Automatic Codex repair
+
+            The **Run Tests** workflow failed on:
+
+            `${{ github.event.workflow_run.head_sha }}`
+
+            A low-cost Codex repair agent inspected the failed-test output
+            and applied a minimal targeted fix.
+
+            The normal pull-request test workflow should now verify the
+            repair before it is merged.
+
+            Please review the change before merging.
+
+          delete-branch: true
