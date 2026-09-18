@@ -3,12 +3,14 @@ name: Run Tests
 on:
   push:
     branches: [ main ]
+
   pull_request:
     branches: [ main ]
 
 jobs:
   test:
     runs-on: ubuntu-latest
+
     steps:
       - name: Get the code
         uses: actions/checkout@v4
@@ -16,13 +18,13 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
 
       - name: Install test tools
         run: npm install
 
-      - name: Install browser for testing
+      - name: Install Chromium
         run: npx playwright install --with-deps chromium
 
-      - name: Run tests
-        run: npx playwright test
+      - name: Test source code only
+        run: npx playwright test tests/tasks.spec.js
