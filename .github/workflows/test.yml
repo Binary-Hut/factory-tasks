@@ -29,4 +29,4 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Test source code only
-        run: npx playwright test tests/tasks.spec.js
+        run: npx playwright test tests/tasks.spec.js tests/console.spec.js
