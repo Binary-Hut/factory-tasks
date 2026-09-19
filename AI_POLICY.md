@@ -61,8 +61,9 @@ and inexpensive.
 
 ## Multi-agent rules
 
-- Maximum AI agents actively modifying the same task: 2.
-- Agents should work on separate branches or isolated workspaces when practical.
+- Maximum AI agents actively modifying the same task: 1.
+- Modifying agents must work on separate task branches.
+- Follow `.ai/BRANCH_OWNERSHIP.md` for parallel work and file-collision rules.
 - Do not allow two agents to edit the same files concurrently.
 - Prefer role specialization over duplicated work.
 - Suggested roles:
@@ -102,6 +103,6 @@ If automation cannot safely continue within the limits above:
 - Default paid AI calls per task: 2
 - Automatic AI retry after failure: disabled
 - Production auto-fix: disabled
-- Maximum modifying AI agents on one task: 2
+- Maximum modifying AI agents on one task: 1
 
 These defaults may be changed only with explicit owner approval.
