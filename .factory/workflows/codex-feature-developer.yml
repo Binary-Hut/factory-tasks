@@ -82,6 +82,14 @@ jobs:
           if git diff --quiet; then echo "Codex made no changes." >&2; exit 1; fi
           git status --short
 
+      - name: Preserve generated implementation before validation
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Preserve Codex implementation pending validation"
+          git push origin HEAD:"${{ inputs.branch }}"
+
       - name: Set up Node.js for deterministic validation
         uses: actions/setup-node@v4
         with:
@@ -93,7 +101,7 @@ jobs:
           test -f package.json || { echo "Implementation must provide a deterministic Node test harness for this factory version." >&2; exit 1; }
           if [ -f package-lock.json ]; then npm ci; else npm install; fi
           if npm ls @playwright/test --depth=0 >/dev/null 2>&1; then
-            npx playwright install --with-deps chromium
+            npx playwright install chromium
           fi
           npm test
 
@@ -110,12 +118,12 @@ jobs:
           p.write_text(t.replace("Status: DEVELOPING", "Status: READY_FOR_REVIEW", 1))
           PY
 
-      - name: Commit validated implementation
+      - name: Mark validated implementation ready for review
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit -m "Implement approved feature plan with Codex"
+          git add "${{ inputs.plan_path }}"
+          git commit -m "Mark validated implementation ready for review"
           git push origin HEAD:"${{ inputs.branch }}"
 
       - name: Pause task if developer stage fails
