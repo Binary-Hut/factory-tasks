@@ -49,6 +49,17 @@ jobs:
             exit 1
           }
 
+      - name: Set up Node.js for deterministic validation
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install test tools
+        run: npm install
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
       - name: Ask Codex Developer to implement approved plan
         uses: openai/codex-action@v1
         with:
@@ -88,17 +99,6 @@ jobs:
             exit 1
           fi
           git status --short
-
-      - name: Set up Node.js for deterministic validation
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24
-
-      - name: Install test tools
-        run: npm install
-
-      - name: Install Chromium
-        run: npx playwright install --with-deps chromium
 
       - name: Run source tests
         run: npx playwright test tests/tasks.spec.js
