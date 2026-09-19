@@ -1,6 +1,6 @@
 # Issue #4 — Incomplete Task Counter
 
-Status: READY_FOR_DEVELOPMENT
+Status: READY_FOR_REVIEW
 Role owner: Planner
 Branch: `feature/incomplete-task-counter`
 
@@ -62,5 +62,5 @@ Show the user how many tasks are currently incomplete, in the form
   `#task-list`, `.delete-btn`, checkbox selector).
 
 ## Handoff
-The plan is approved and ready for development.
-The Developer must implement only this approved plan.
+The approved plan has been implemented and is ready for independent review.
+The Reviewer must evaluate the implementation against this plan without modifying code.
