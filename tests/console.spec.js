@@ -99,3 +99,13 @@ test('console surfaces failed critical checks as needing attention', async ({ pa
   await expect(page.locator('#health-title')).toHaveText('Needs attention');
   await expect(page.locator('#health-detail')).toContainText('failed');
 });
+
+
+test('console includes the owner-facing New Project surface', async ({ page }) => {
+  await mockGitHub(page);
+  await page.goto(CONSOLE_URL);
+
+  await expect(page.getByRole('heading', { name: 'New project' })).toBeVisible();
+  await expect(page.locator('#project-name')).toHaveAttribute('placeholder', 'Student Practice Tracker');
+  await expect(page.locator('#create-project-btn')).toHaveText('Create project');
+});
