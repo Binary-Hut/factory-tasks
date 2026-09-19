@@ -4,7 +4,7 @@ const {
   randomState,
   getConfig,
   isConfigured
-} = require('../_lib/auth');
+} = require('../../lib/factory-auth');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'GET') {
