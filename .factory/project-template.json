@@ -27,7 +27,11 @@
       ".ai/BRANCH_OWNERSHIP.md",
       ".ai/roles/PLANNER.md",
       ".ai/roles/DEVELOPER.md",
-      ".ai/roles/REVIEWER.md"
+      ".ai/roles/REVIEWER.md",
+      ".factory/workflows/test.yml -> .github/workflows/test.yml",
+      ".factory/workflows/branch-collision-guard.yml -> .github/workflows/branch-collision-guard.yml",
+      ".factory/workflows/codex-feature-developer.yml -> .github/workflows/codex-feature-developer.yml",
+      ".factory/workflows/gemini-review.yml -> .github/workflows/gemini-review.yml"
     ],
     "generate_for_project": [
       "README.md",
@@ -37,11 +41,7 @@
       "AGENTS.md"
     ],
     "configure_per_project": [
-      ".github/workflows/test.yml",
-      ".github/workflows/verify-production.yml",
-      ".github/workflows/codex-feature-developer.yml",
-      ".github/workflows/gemini-review.yml",
-      ".github/workflows/codex-autofix.yml"
+      "deployment/production verification when the project reaches deployment"
     ]
   },
   "default_agents": {
@@ -56,6 +56,10 @@
   },
   "security": {
     "browser_write_tokens_allowed": false,
-    "central_server_credential_required_for_repo_creation": true
+    "central_server_credential_required_for_repo_creation": true,
+    "oauth_scopes_required": [
+      "public_repo",
+      "workflow"
+    ]
   }
 }
