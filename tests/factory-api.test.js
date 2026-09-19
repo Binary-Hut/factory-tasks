@@ -8,7 +8,8 @@ const {
 } = require('../lib/factory-auth');
 const {
   slugify,
-  validateProjectRequest
+  validateProjectRequest,
+  projectDocs
 } = require('../lib/factory-project');
 
 const SECRET = 'this-is-a-test-session-secret-with-enough-length';
@@ -74,4 +75,23 @@ test('provisioning configuration requires all server-side secrets', () => {
     GITHUB_OAUTH_CLIENT_SECRET: '',
     FACTORY_SESSION_SECRET: SECRET
   }), false);
+});
+
+
+test('generated project agent rules are project-neutral', () => {
+  const validation = validateProjectRequest({
+    name: 'Tutor Mobile Companion',
+    description: 'A mobile companion for tutors to manage lesson workflows.',
+    project_type: 'mobile-app',
+    developer_calls: 1,
+    reviewer_calls: 1
+  });
+
+  assert.equal(validation.ok, true);
+  const docs = projectDocs(validation.project);
+  assert.match(docs['AGENTS.md'], /Project type: mobile-app/);
+  assert.match(docs['AGENTS.md'], /do not assume a static site, web framework, backend, database, or mobile stack in advance/i);
+  assert.doesNotMatch(docs['AGENTS.md'], /Keep the app as a single/);
+  assert.doesNotMatch(docs['AGENTS.md'], /Do not create a mobile app/);
+  assert.match(docs['AGENTS.md'], /AI_POLICY\.md/);
 });
