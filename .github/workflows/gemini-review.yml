@@ -1,0 +1,140 @@
+name: Gemini PR Reviewer
+
+on:
+  pull_request:
+    types: [labeled, synchronize, reopened]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "Pull request number to review"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: gemini-review-${{ github.event.pull_request.number || inputs.pr_number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      contains(github.event.pull_request.labels.*.name, 'ready-for-ai-review')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check Gemini API key
+        run: |
+          if [ -z "${{ secrets.GEMINI_API_KEY }}" ]; then
+            echo "GEMINI_API_KEY is not configured." >&2
+            exit 1
+          fi
+
+      - name: Resolve PR metadata
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_PR: ${{ github.event.pull_request.number }}
+          EVENT_HEAD: ${{ github.event.pull_request.head.ref }}
+          EVENT_BASE: ${{ github.event.pull_request.base.ref }}
+          INPUT_PR: ${{ inputs.pr_number }}
+          REPO: ${{ github.repository }}
+        run: |
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            PR_NUMBER="$INPUT_PR"
+            HEAD_REF="$(gh api "repos/$REPO/pulls/$PR_NUMBER" --jq .head.ref)"
+            BASE_REF="$(gh api "repos/$REPO/pulls/$PR_NUMBER" --jq .base.ref)"
+          else
+            PR_NUMBER="$EVENT_PR"
+            HEAD_REF="$EVENT_HEAD"
+            BASE_REF="$EVENT_BASE"
+          fi
+
+          echo "number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+          echo "head_ref=$HEAD_REF" >> "$GITHUB_OUTPUT"
+          echo "base_ref=$BASE_REF" >> "$GITHUB_OUTPUT"
+
+      - name: Check out PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.pr.outputs.head_ref }}
+          fetch-depth: 0
+
+      - name: Build compact review context
+        env:
+          BASE_REF: ${{ steps.pr.outputs.base_ref }}
+        run: |
+          git fetch origin "$BASE_REF"
+          git diff --no-ext-diff --unified=80 "origin/$BASE_REF"...HEAD > .gemini-review.diff
+          {
+            echo "PR #${{ steps.pr.outputs.number }}"
+            echo "Head: ${{ steps.pr.outputs.head_ref }}"
+            echo "Base: ${{ steps.pr.outputs.base_ref }}"
+          } > .gemini-review-meta.txt
+
+      - name: Run Gemini reviewer
+        id: gemini
+        uses: google-github-actions/run-gemini-cli@v0
+        with:
+          gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
+          gemini_model: gemini-3.1-flash-lite
+          prompt: |
+            You are the independent Reviewer for Factory Tasks.
+
+            This is a REVIEW-ONLY task. Do not edit files, do not implement fixes,
+            do not commit, do not push, and do not create additional work.
+
+            Read:
+            - AI_POLICY.md
+            - AGENTS.md
+            - PRODUCT.md
+            - ARCHITECTURE.md
+            - .ai/roles/REVIEWER.md
+            - the approved task plan under .ai/tasks/
+            - .gemini-review-meta.txt
+            - .gemini-review.diff
+            - any directly relevant changed source/test files only if needed
+
+            Review the PR against the approved plan.
+
+            Check:
+            1. whether every acceptance criterion is met,
+            2. whether the implementation introduces regressions or unnecessary complexity,
+            3. whether tests adequately cover the feature,
+            4. whether any repository policy is violated.
+
+            Do not suggest style-only changes.
+            Do not redesign the feature.
+            Keep the review concise.
+
+            Return exactly these sections:
+            ## Acceptance criteria check
+            ## Concrete issues found
+            ## Test coverage check
+            ## Policy/scope check
+            ## Merge readiness
+
+            In Merge readiness, write exactly one of:
+            READY
+            CHANGES REQUIRED
+
+      - name: Post Gemini review to PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+          REVIEW_BODY: ${{ steps.gemini.outputs.summary }}
+        run: |
+          {
+            echo "## Gemini independent review"
+            echo
+            printf '%s\n' "$REVIEW_BODY"
+            echo
+            echo "_Model: gemini-3.1-flash-lite · automated review-only workflow_"
+          } > /tmp/gemini-review.md
+
+          gh pr comment "$PR_NUMBER" --body-file /tmp/gemini-review.md
