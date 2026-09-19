@@ -186,14 +186,23 @@
     input,
     select,
     textarea {
-      min-height: 120px;
-      resize: vertical;
+      width: 100%;
       padding: 13px 14px;
       border: 1px solid #d9dfeb;
       border-radius: 12px;
       font: inherit;
       color: inherit;
       background: #fff;
+    }
+
+    input,
+    select {
+      min-height: 44px;
+    }
+
+    textarea {
+      min-height: 120px;
+      resize: vertical;
     }
 
     .form-row {
