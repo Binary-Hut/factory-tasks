@@ -1,6 +1,6 @@
 # Issue #6 — Factory Console MVP
 
-Status: READY_FOR_DEVELOPMENT
+Status: READY_FOR_REVIEW
 Role owner: Planner
 Branch: `feature/factory-console-mvp`
 
@@ -63,3 +63,9 @@ understand the software factory without reading GitHub Actions logs.
   requests per refresh and is intended for one owner.
 - Secure write actions will require a server-side layer later; browser-side
   GitHub tokens are explicitly forbidden.
+
+
+## Handoff
+
+The MVP implementation is complete on the feature branch and is ready for
+independent review after deterministic CI passes.
