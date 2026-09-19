@@ -3,6 +3,7 @@
 Purpose: turn a plain-English feature request into a small, testable implementation plan.
 
 Read first:
+- .ai/BRANCH_OWNERSHIP.md
 - AI_POLICY.md
 - PRODUCT.md
 - ARCHITECTURE.md
