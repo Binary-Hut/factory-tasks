@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const {
   encryptSession,
   decryptSession,
+  getConfig,
   isConfigured
 } = require('../lib/factory-auth');
 const {
@@ -62,6 +63,23 @@ test('encrypted session rejects tampering', () => {
   const encrypted = encryptSession({ token: 'secret-token', login: 'MusicalHut' }, SECRET);
   const tampered = encrypted.slice(0, -2) + 'aa';
   assert.equal(decryptSession(tampered, SECRET), null);
+});
+
+test('factory configuration separates the authorized user from the destination organization', () => {
+  const config = getConfig({
+    GITHUB_OAUTH_CLIENT_ID: 'client',
+    GITHUB_OAUTH_CLIENT_SECRET: 'secret',
+    FACTORY_SESSION_SECRET: SECRET,
+    FACTORY_GITHUB_OWNER: 'MusicalHut',
+    FACTORY_GITHUB_ORGANIZATION: 'Binary-Hut'
+  });
+
+  assert.equal(config.owner, 'MusicalHut');
+  assert.equal(config.organization, 'Binary-Hut');
+});
+
+test('factory configuration defaults new repositories to Binary Hut', () => {
+  assert.equal(getConfig({}).organization, 'Binary-Hut');
 });
 
 test('provisioning configuration requires all server-side secrets', () => {
