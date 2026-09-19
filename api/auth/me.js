@@ -1,4 +1,4 @@
-const { getConfig, isConfigured, readSession } = require('../_lib/auth');
+const { getConfig, isConfigured, readSession } = require('../../lib/factory-auth');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'GET') {
