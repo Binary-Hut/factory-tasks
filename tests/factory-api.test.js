@@ -9,6 +9,7 @@ const {
 const {
   slugify,
   validateProjectRequest,
+  repositoryDescription,
   projectDocs
 } = require('../lib/factory-project');
 
@@ -121,4 +122,25 @@ test('project request rejects only unreasonably large transport payloads', () =>
 
   assert.equal(result.ok, false);
   assert.match(result.errors.join(' '), /too large to process safely/i);
+});
+
+
+test('repository metadata stays short while generated docs preserve the full brief', () => {
+  const longBrief = 'Practice timer requirement with musical design and detailed behavior. '.repeat(20);
+  const result = validateProjectRequest({
+    name: 'Practice Timer',
+    description: longBrief,
+    project_type: 'web-app',
+    developer_calls: 1,
+    reviewer_calls: 1
+  });
+
+  assert.equal(result.ok, true);
+  const shortDescription = repositoryDescription(result.project);
+  assert.ok(shortDescription.length <= 300);
+  assert.ok(shortDescription.endsWith('…'));
+
+  const docs = projectDocs(result.project);
+  assert.ok(docs['PROJECT_REQUEST.md'].includes(longBrief.trim()));
+  assert.ok(docs['PRODUCT.md'].includes(longBrief.trim()));
 });
