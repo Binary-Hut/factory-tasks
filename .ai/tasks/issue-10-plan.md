@@ -1,6 +1,6 @@
 # Issue #10 — Secure GitHub Sign-in and New Project Creation
 
-Status: READY_FOR_DEVELOPMENT
+Status: READY_FOR_REVIEW
 Role owner: Developer
 Branch: `feature/secure-project-provisioning`
 
@@ -39,3 +39,10 @@ factory-ready public repository from the Factory Console.
 - No browser-accessible GitHub credential is introduced.
 - Deterministic unit tests cover validation and encrypted sessions.
 - Existing task-manager and Console health views remain functional.
+
+
+## Handoff
+
+Implementation is complete on the feature branch. The live create action will
+remain unavailable until the owner completes the one-time OAuth/Vercel secret
+setup after merge. No secret is committed to GitHub.
