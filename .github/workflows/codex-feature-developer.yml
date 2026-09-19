@@ -44,10 +44,33 @@ jobs:
             echo "Plan file not found: ${{ inputs.plan_path }}" >&2
             exit 1
           }
-          grep -q "Status: READY_FOR_DEVELOPMENT" "${{ inputs.plan_path }}" || {
-            echo "Plan is not marked READY_FOR_DEVELOPMENT." >&2
+          if grep -q "Status: READY_FOR_DEVELOPMENT" "${{ inputs.plan_path }}"; then
+            echo "Approved first development attempt."
+          elif grep -q "Status: READY_FOR_RETRY" "${{ inputs.plan_path }}"; then
+            echo "Owner-approved retry."
+          else
+            echo "Plan must be READY_FOR_DEVELOPMENT or READY_FOR_RETRY." >&2
             exit 1
-          }
+          fi
+
+      - name: Mark developer stage active
+        env:
+          PLAN_PATH: ${{ inputs.plan_path }}
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import os
+
+          path = Path(os.environ["PLAN_PATH"])
+          text = path.read_text()
+          if "Status: READY_FOR_DEVELOPMENT" in text:
+              text = text.replace("Status: READY_FOR_DEVELOPMENT", "Status: DEVELOPING", 1)
+          elif "Status: READY_FOR_RETRY" in text:
+              text = text.replace("Status: READY_FOR_RETRY", "Status: DEVELOPING", 1)
+          else:
+              raise SystemExit("Task is not in a startable state.")
+          path.write_text(text)
+          PY
 
       - name: Set up Node.js for deterministic validation
         uses: actions/setup-node@v4
@@ -113,11 +136,11 @@ jobs:
 
           path = Path(os.environ["PLAN_PATH"])
           text = path.read_text()
-          old = "Status: READY_FOR_DEVELOPMENT"
+          old = "Status: DEVELOPING"
           new = "Status: READY_FOR_REVIEW"
 
           if old not in text:
-              raise SystemExit("Expected READY_FOR_DEVELOPMENT status was not found.")
+              raise SystemExit("Expected DEVELOPING status was not found.")
 
           path.write_text(text.replace(old, new, 1))
           PY
@@ -129,3 +152,34 @@ jobs:
           git add -A
           git commit -m "Implement approved feature plan with Codex"
           git push origin HEAD:"${{ inputs.branch }}"
+
+
+      - name: Pause task if developer stage fails
+        if: failure()
+        env:
+          PLAN_PATH: ${{ inputs.plan_path }}
+        run: |
+          if [ ! -f "$PLAN_PATH" ]; then
+            exit 0
+          fi
+
+          python - <<'PY'
+          from pathlib import Path
+          import os
+
+          path = Path(os.environ["PLAN_PATH"])
+          text = path.read_text()
+          if "Status: DEVELOPING" in text:
+              text = text.replace("Status: DEVELOPING", "Status: PAUSED_AI_FAILURE", 1)
+              path.write_text(text)
+          PY
+
+          if git diff --quiet -- "$PLAN_PATH"; then
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$PLAN_PATH"
+          git commit -m "Pause AI task after failed developer run"
+          git push origin HEAD:"${{ inputs.branch }}" || true
