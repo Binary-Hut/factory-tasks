@@ -95,11 +95,12 @@ jobs:
 
             Read these files before making changes:
             1. AI_POLICY.md
-            2. AGENTS.md
-            3. PRODUCT.md
-            4. ARCHITECTURE.md
-            5. .ai/roles/DEVELOPER.md
-            6. ${{ inputs.plan_path }}
+            2. .ai/BRANCH_OWNERSHIP.md
+            3. AGENTS.md
+            4. PRODUCT.md
+            5. ARCHITECTURE.md
+            6. .ai/roles/DEVELOPER.md
+            7. ${{ inputs.plan_path }}
 
             Implement ONLY the approved plan in ${{ inputs.plan_path }}.
 
