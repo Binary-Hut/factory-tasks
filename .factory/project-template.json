@@ -23,19 +23,18 @@
   "starter_files": {
     "copy_from_factory": [
       "AI_POLICY.md",
-      "AGENTS.md",
       ".ai/WORKFLOW_STATE.md",
       ".ai/BRANCH_OWNERSHIP.md",
       ".ai/roles/PLANNER.md",
       ".ai/roles/DEVELOPER.md",
-      ".ai/roles/REVIEWER.md",
-      ".github/workflows/branch-collision-guard.yml"
+      ".ai/roles/REVIEWER.md"
     ],
     "generate_for_project": [
       "README.md",
       "PRODUCT.md",
       "ARCHITECTURE.md",
-      "ROADMAP.md"
+      "ROADMAP.md",
+      "AGENTS.md"
     ],
     "configure_per_project": [
       ".github/workflows/test.yml",
