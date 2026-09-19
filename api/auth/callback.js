@@ -78,7 +78,8 @@ module.exports = async function handler(req, res) {
 
     const session = encryptSession({
       token: token.access_token,
-      login: user.login
+      login: user.login,
+      scopes: String(token.scope || '').split(',').map((value) => value.trim()).filter(Boolean)
     }, config.sessionSecret);
 
     res.setHeader('Set-Cookie', [
