@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "projects": [
+    {
+      "id": "factory-tasks",
+      "name": "Factory Tasks",
+      "repository": "MusicalHut/factory-tasks",
+      "project_type": "static-web",
+      "lifecycle_status": "active",
+      "deployment": {
+        "provider": "vercel",
+        "live_url": "https://factory-tasks-eta.vercel.app"
+      },
+      "agents": {
+        "planner": "manual-claude",
+        "developer": "codex",
+        "reviewer": "gemini"
+      },
+      "ai_budget": {
+        "developer_calls_per_stage": 1,
+        "reviewer_calls_per_stage": 1,
+        "automatic_retries": 0
+      }
+    }
+  ]
+}

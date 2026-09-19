@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "required_request_fields": [
+    "name",
+    "slug",
+    "description",
+    "project_type",
+    "deployment",
+    "agents",
+    "ai_budget"
+  ],
+  "allowed_project_types": [
+    "static-web",
+    "web-app",
+    "api-service",
+    "mobile-app",
+    "other"
+  ],
+  "allowed_deployments": [
+    "none",
+    "vercel"
+  ],
+  "starter_files": {
+    "copy_from_factory": [
+      "AI_POLICY.md",
+      "AGENTS.md",
+      ".ai/WORKFLOW_STATE.md",
+      ".ai/BRANCH_OWNERSHIP.md",
+      ".ai/roles/PLANNER.md",
+      ".ai/roles/DEVELOPER.md",
+      ".ai/roles/REVIEWER.md",
+      ".github/workflows/branch-collision-guard.yml"
+    ],
+    "generate_for_project": [
+      "README.md",
+      "PRODUCT.md",
+      "ARCHITECTURE.md",
+      "ROADMAP.md"
+    ],
+    "configure_per_project": [
+      ".github/workflows/test.yml",
+      ".github/workflows/verify-production.yml",
+      ".github/workflows/codex-feature-developer.yml",
+      ".github/workflows/gemini-review.yml",
+      ".github/workflows/codex-autofix.yml"
+    ]
+  },
+  "default_agents": {
+    "planner": "manual-claude",
+    "developer": "codex",
+    "reviewer": "gemini"
+  },
+  "default_ai_budget": {
+    "developer_calls_per_stage": 1,
+    "reviewer_calls_per_stage": 1,
+    "automatic_retries": 0
+  },
+  "security": {
+    "browser_write_tokens_allowed": false,
+    "central_server_credential_required_for_repo_creation": true
+  }
+}
