@@ -154,3 +154,8 @@ test('project template provisions the core factory workflow set', () => {
   assert.match(copied, /workflows\/test\.yml/);
   assert.deepEqual(template.security.oauth_scopes_required, ['public_repo', 'workflow']);
 });
+
+test('OAuth workflow permission is part of the project provisioning contract', () => {
+  const template = require('../.factory/project-template.json');
+  assert.ok(template.security.oauth_scopes_required.includes('workflow'));
+});
