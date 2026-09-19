@@ -4,7 +4,7 @@
     {
       "id": "factory-tasks",
       "name": "Factory Tasks",
-      "repository": "MusicalHut/factory-tasks",
+      "repository": "Binary-Hut/factory-tasks",
       "project_type": "static-web",
       "lifecycle_status": "active",
       "deployment": {
