@@ -1,0 +1,33 @@
+name: Project Registry Check
+
+on:
+  pull_request:
+    paths:
+      - '.factory/**'
+      - '.github/workflows/project-registry-check.yml'
+  push:
+    branches: [ main ]
+    paths:
+      - '.factory/**'
+      - '.github/workflows/project-registry-check.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Get the code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Validate factory project registry
+        run: node .factory/validate-projects.mjs
