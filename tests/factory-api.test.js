@@ -95,3 +95,30 @@ test('generated project agent rules are project-neutral', () => {
   assert.doesNotMatch(docs['AGENTS.md'], /Do not create a mobile app/);
   assert.match(docs['AGENTS.md'], /AI_POLICY\.md/);
 });
+
+
+test('project request accepts detailed briefs longer than the old 500-character limit', () => {
+  const result = validateProjectRequest({
+    name: 'Detailed Project',
+    description: 'Build a detailed project with clear requirements. '.repeat(30),
+    project_type: 'web-app',
+    developer_calls: 1,
+    reviewer_calls: 1
+  });
+
+  assert.equal(result.ok, true);
+  assert.ok(result.project.description.length > 500);
+});
+
+test('project request rejects only unreasonably large transport payloads', () => {
+  const result = validateProjectRequest({
+    name: 'Oversized Project',
+    description: 'x'.repeat(50001),
+    project_type: 'web-app',
+    developer_calls: 1,
+    reviewer_calls: 1
+  });
+
+  assert.equal(result.ok, false);
+  assert.match(result.errors.join(' '), /too large to process safely/i);
+});
