@@ -53,3 +53,47 @@ test('deleting one task does not delete others', async ({ page }) => {
   await page.reload();
   await expect(page.locator('.task-text')).toHaveText(['Task A', 'Task C']);
 });
+
+test('counter shows 0 tasks remaining with no tasks', async ({ page }) => {
+  await expect(page.locator('#task-counter')).toHaveText('0 tasks remaining');
+});
+
+test('counter updates when adding and marking tasks', async ({ page }) => {
+  await page.fill('#task-input', 'First');
+  await page.click('#add-btn');
+  await expect(page.locator('#task-counter')).toHaveText('1 task remaining');
+
+  await page.fill('#task-input', 'Second');
+  await page.click('#add-btn');
+  await expect(page.locator('#task-counter')).toHaveText('2 tasks remaining');
+
+  await page.locator('.task').first().locator('input[type="checkbox"]').click();
+  await expect(page.locator('#task-counter')).toHaveText('1 task remaining');
+
+  await page.locator('.task').first().locator('input[type="checkbox"]').click();
+  await expect(page.locator('#task-counter')).toHaveText('2 tasks remaining');
+});
+
+test('counter unaffected when deleting completed task but decrements when deleting incomplete', async ({ page }) => {
+  await page.fill('#task-input', 'A');
+  await page.click('#add-btn');
+  await page.fill('#task-input', 'B');
+  await page.click('#add-btn');
+
+  await page.locator('.task', { hasText: 'A' }).locator('input[type="checkbox"]').click();
+  await expect(page.locator('#task-counter')).toHaveText('1 task remaining');
+
+  await page.locator('.task', { hasText: 'A' }).locator('.delete-btn').click();
+  await expect(page.locator('#task-counter')).toHaveText('1 task remaining');
+
+  await page.locator('.task', { hasText: 'B' }).locator('.delete-btn').click();
+  await expect(page.locator('#task-counter')).toHaveText('0 tasks remaining');
+});
+
+test('counter persists after reload', async ({ page }) => {
+  await page.fill('#task-input', 'Persist');
+  await page.click('#add-btn');
+  await expect(page.locator('#task-counter')).toHaveText('1 task remaining');
+  await page.reload();
+  await expect(page.locator('#task-counter')).toHaveText('1 task remaining');
+});
