@@ -151,7 +151,7 @@ module.exports = async function handler(req, res) {
 
     for (const [sourcePath, destinationPath] of COPY_FILES) {
       const content = await sourceFile(sourcePath, session.token);
-      await createFile(owner, project.slug, destinationPath, content, session.token);
+      await createFile(organization, project.slug, destinationPath, content, session.token);
     }
 
     return res.status(201).json({
