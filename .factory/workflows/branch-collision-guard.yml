@@ -1,0 +1,40 @@
+name: Branch Collision Guard
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  collision-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check for overlapping files in other open PRs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          CURRENT_PR: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          CURRENT_FILES="$(mktemp)"
+          OTHER_FILES="$(mktemp)"
+          gh api --paginate "repos/$REPO/pulls/$CURRENT_PR/files?per_page=100" --jq '.[].filename' | sort -u > "$CURRENT_FILES"
+          CONFLICT_FOUND=0
+          for OTHER_PR in $(gh api "repos/$REPO/pulls?state=open&per_page=100" --jq ".[] | select(.number != $CURRENT_PR) | .number"); do
+            gh api --paginate "repos/$REPO/pulls/$OTHER_PR/files?per_page=100" --jq '.[].filename' | sort -u > "$OTHER_FILES"
+            OVERLAP="$(comm -12 "$CURRENT_FILES" "$OTHER_FILES" || true)"
+            if [ -n "$OVERLAP" ]; then
+              CONFLICT_FOUND=1
+              echo "::error::PR #$CURRENT_PR overlaps files with open PR #$OTHER_PR"
+              echo "$OVERLAP"
+            fi
+          done
+          if [ "$CONFLICT_FOUND" -ne 0 ]; then
+            echo "Parallel modification is blocked by .ai/BRANCH_OWNERSHIP.md."
+            exit 1
+          fi
+          echo "No overlapping files found."
