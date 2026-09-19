@@ -83,6 +83,12 @@ module.exports = async function handler(req, res) {
     return res.status(401).json({ error: 'Sign in with the authorized GitHub account first.' });
   }
 
+  if (!Array.isArray(session.scopes) || !session.scopes.includes('workflow')) {
+    return res.status(403).json({
+      error: 'Reconnect GitHub once to allow the factory to install GitHub Actions workflows.'
+    });
+  }
+
   let body = req.body || {};
   if (typeof body === 'string') {
     try {
