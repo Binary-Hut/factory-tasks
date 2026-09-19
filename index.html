@@ -146,6 +146,7 @@
     </div>
 
     <ul id="task-list"></ul>
+    <p id="task-counter" aria-live="polite">0 tasks remaining</p>
     <p class="empty-state" id="empty-state">No tasks yet. Add one above.</p>
   </div>
 
@@ -178,10 +179,19 @@
     const inputEl = document.getElementById("task-input");
     const addBtn = document.getElementById("add-btn");
     const emptyState = document.getElementById("empty-state");
+    const taskCounter = document.getElementById("task-counter");
+
+    function renderCounter() {
+      const remaining = tasks.filter((task) => !task.done).length;
+      taskCounter.textContent = remaining === 1
+        ? "1 task remaining"
+        : `${remaining} tasks remaining`;
+    }
 
     function render() {
       listEl.innerHTML = "";
       emptyState.style.display = tasks.length === 0 ? "block" : "none";
+      renderCounter();
 
       tasks.forEach((task) => {
         const li = document.createElement("li");
