@@ -7,7 +7,7 @@ const {
   encryptSession,
   getConfig,
   isConfigured
-} = require('../_lib/auth');
+} = require('../../lib/factory-auth');
 
 async function githubJson(url, options = {}) {
   const response = await fetch(url, {
