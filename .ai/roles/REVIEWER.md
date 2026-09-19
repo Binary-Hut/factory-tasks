@@ -3,6 +3,7 @@
 Purpose: independently review a completed feature before merge.
 
 Read first:
+- .ai/BRANCH_OWNERSHIP.md
 - AI_POLICY.md
 - AGENTS.md
 - PRODUCT.md
