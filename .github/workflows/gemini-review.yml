@@ -13,6 +13,7 @@ on:
 permissions:
   contents: read
   pull-requests: write
+  issues: write
 
 concurrency:
   group: gemini-review-${{ github.event.pull_request.number || inputs.pr_number }}
@@ -141,6 +142,38 @@ jobs:
 
           gh pr comment "$PR_NUMBER" --body-file /tmp/gemini-review.md
 
+
+      - name: Record reviewer result as PR state
+        if: success() && steps.pr.outputs.number != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+          REVIEW_BODY: ${{ steps.gemini.outputs.summary }}
+        run: |
+          gh label create "ai-review-ready" --color "0E8A16" --description "AI review passed and PR is ready for merge consideration" --force
+          gh label create "ai-review-changes-required" --color "D93F0B" --description "AI review found concrete changes required" --force
+          gh label create "ai-review-paused" --color "BFD4F2" --description "AI review paused after an AI/infrastructure failure" --force
+
+          gh api --method DELETE             "repos/${{ github.repository }}/issues/$PR_NUMBER/labels/ai-review-ready"             >/dev/null 2>&1 || true
+          gh api --method DELETE             "repos/${{ github.repository }}/issues/$PR_NUMBER/labels/ai-review-changes-required"             >/dev/null 2>&1 || true
+          gh api --method DELETE             "repos/${{ github.repository }}/issues/$PR_NUMBER/labels/ai-review-paused"             >/dev/null 2>&1 || true
+
+          if printf '%s' "$REVIEW_BODY" | grep -q "CHANGES REQUIRED"; then
+            gh issue edit "$PR_NUMBER" --add-label "ai-review-changes-required"
+          elif printf '%s' "$REVIEW_BODY" | grep -q "READY"; then
+            gh issue edit "$PR_NUMBER" --add-label "ai-review-ready"
+          else
+            gh issue edit "$PR_NUMBER" --add-label "ai-review-paused"
+          fi
+
+      - name: Pause reviewer state after failure
+        if: failure() && steps.pr.outputs.number != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+        run: |
+          gh label create "ai-review-paused" --color "BFD4F2" --description "AI review paused after an AI/infrastructure failure" --force
+          gh issue edit "$PR_NUMBER" --add-label "ai-review-paused"
 
       # Cost guard: one Gemini call per explicit review arm.
       # Re-add the label only when another independent review is intentionally needed.
