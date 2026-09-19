@@ -3,6 +3,7 @@
 Purpose: implement an approved plan on a feature branch.
 
 Read first:
+- .ai/BRANCH_OWNERSHIP.md
 - AI_POLICY.md
 - AGENTS.md
 - PRODUCT.md
