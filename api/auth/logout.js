@@ -1,4 +1,4 @@
-const { SESSION_COOKIE, STATE_COOKIE, cookie } = require('../_lib/auth');
+const { SESSION_COOKIE, STATE_COOKIE, cookie } = require('../../lib/factory-auth');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') {
