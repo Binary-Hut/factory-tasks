@@ -10,10 +10,13 @@ module.exports = async function handler(req, res) {
   const session = configured ? readSession(req) : null;
   const owner = getConfig().owner;
 
+  const workflowAuthorized = Boolean(session?.scopes?.includes('workflow'));
+
   return res.status(200).json({
     configured,
     authenticated: Boolean(session && session.login.toLowerCase() === owner.toLowerCase()),
     login: session?.login || null,
+    workflow_authorized: workflowAuthorized,
     owner
   });
 };
