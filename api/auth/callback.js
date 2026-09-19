@@ -52,7 +52,10 @@ module.exports = async function handler(req, res) {
 
     const token = await githubJson('https://github.com/login/oauth/access_token', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify({
         client_id: config.clientId,
         client_secret: config.clientSecret,
