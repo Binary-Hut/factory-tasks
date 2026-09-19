@@ -1,5 +1,5 @@
-const { getConfig, isConfigured, readSession } = require('./_lib/auth');
-const { validateProjectRequest, projectDocs } = require('./_lib/project');
+const { getConfig, isConfigured, readSession } = require('../lib/factory-auth');
+const { validateProjectRequest, projectDocs } = require('../lib/factory-project');
 
 const SOURCE_REPO = 'MusicalHut/factory-tasks';
 const COPY_FILES = [
