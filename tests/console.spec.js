@@ -109,3 +109,11 @@ test('console includes the owner-facing New Project surface', async ({ page }) =
   await expect(page.locator('#project-name')).toHaveAttribute('placeholder', 'Student Practice Tracker');
   await expect(page.locator('#create-project-btn')).toHaveText('Create project');
 });
+
+test('console points advanced controls at the Binary Hut factory repository', async ({ page }) => {
+  await mockGitHub(page);
+  await page.goto(CONSOLE_URL);
+
+  await expect(page.getByRole('link', { name: 'Advanced' }))
+    .toHaveAttribute('href', 'https://github.com/Binary-Hut/factory-tasks');
+});
