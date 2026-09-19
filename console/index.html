@@ -183,8 +183,9 @@
       gap: 12px;
     }
 
+    input,
+    select,
     textarea {
-      width: 100%;
       min-height: 120px;
       resize: vertical;
       padding: 13px 14px;
@@ -193,6 +194,28 @@
       font: inherit;
       color: inherit;
       background: #fff;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .form-field {
+      display: grid;
+      gap: 6px;
+    }
+
+    .wide { grid-column: 1 / -1; }
+
+    .result {
+      display: none;
+      padding: 12px 14px;
+      border-radius: 12px;
+      background: #eef7f1;
+      color: #17643a;
+      line-height: 1.5;
     }
 
     .note {
@@ -213,6 +236,7 @@
     @media (max-width: 760px) {
       header { display: grid; }
       .grid { grid-template-columns: 1fr; }
+      .form-row { grid-template-columns: 1fr; }
       .run-row { align-items: flex-start; }
     }
   </style>
@@ -226,6 +250,8 @@
       </div>
       <div class="toolbar">
         <button class="button" id="refresh-btn" type="button">Refresh</button>
+        <a class="button" id="auth-btn" href="/api/auth/github">Sign in with GitHub</a>
+        <button class="button" id="logout-btn" type="button" hidden>Sign out</button>
         <a class="button" href="https://factory-tasks-eta.vercel.app" target="_blank" rel="noreferrer">Open live app</a>
         <a class="button" href="https://github.com/MusicalHut/factory-tasks" target="_blank" rel="noreferrer">Advanced</a>
       </div>
@@ -252,6 +278,57 @@
         <div class="run-list" id="recent-runs">
           <div class="empty">Loading recent activity…</div>
         </div>
+      </article>
+    </section>
+
+    <section class="grid">
+      <article class="panel wide">
+        <h2>New project</h2>
+        <p class="muted" id="project-auth-note">Checking secure project creation…</p>
+
+        <form id="new-project-form" hidden>
+          <div class="form-row">
+            <label class="form-field">
+              <span>Project name</span>
+              <input id="project-name" maxlength="80" placeholder="Student Practice Tracker" required>
+            </label>
+
+            <label class="form-field">
+              <span>Project type</span>
+              <select id="project-type">
+                <option value="web-app">Web app</option>
+                <option value="static-web">Simple website</option>
+                <option value="api-service">API / backend service</option>
+                <option value="mobile-app">Mobile app</option>
+                <option value="other">Other</option>
+              </select>
+            </label>
+          </div>
+
+          <label class="form-field">
+            <span>What should it do?</span>
+            <textarea id="project-description" maxlength="500" placeholder="Describe the product in plain English." required></textarea>
+          </label>
+
+          <div class="form-row">
+            <label class="form-field">
+              <span>Developer AI calls per stage</span>
+              <input id="developer-calls" type="number" min="0" max="3" value="1">
+            </label>
+            <label class="form-field">
+              <span>Reviewer AI calls per stage</span>
+              <input id="reviewer-calls" type="number" min="0" max="3" value="1">
+            </label>
+          </div>
+
+          <div class="note">
+            Project creation never starts a paid AI agent automatically. It creates the repository,
+            installs the factory safety files, and stops ready for planning.
+          </div>
+
+          <button class="button primary" id="create-project-btn" type="submit">Create project</button>
+          <div class="result" id="project-result"></div>
+        </form>
       </article>
     </section>
 
@@ -305,6 +382,41 @@
         return { text: "Skipped", className: "" };
       }
       return { text: "Needs attention", className: "bad" };
+    }
+
+    async function loadAuth() {
+      if (location.protocol === "file:") return;
+
+      const note = document.getElementById("project-auth-note");
+      const form = document.getElementById("new-project-form");
+      const authButton = document.getElementById("auth-btn");
+      const logoutButton = document.getElementById("logout-btn");
+
+      try {
+        const response = await fetch("/api/auth/me");
+        const auth = await response.json();
+
+        if (!auth.configured) {
+          note.textContent = "One-time secure setup is required before project creation can be enabled.";
+          authButton.textContent = "Setup required";
+          authButton.removeAttribute("href");
+          return;
+        }
+
+        if (auth.authenticated) {
+          note.textContent = "Signed in as " + auth.login + ". New repositories will be created under this GitHub account.";
+          form.hidden = false;
+          authButton.hidden = true;
+          logoutButton.hidden = false;
+        } else {
+          note.textContent = "Sign in with the authorized GitHub account to create a project.";
+          authButton.hidden = false;
+          authButton.textContent = "Sign in with GitHub";
+          authButton.href = "/api/auth/github";
+        }
+      } catch {
+        note.textContent = "Secure project creation status could not be loaded.";
+      }
     }
 
     async function getJson(url) {
@@ -466,6 +578,72 @@
 
     document.getElementById("refresh-btn").addEventListener("click", loadConsole);
 
+    document.getElementById("logout-btn").addEventListener("click", async () => {
+      await fetch("/api/auth/logout", { method: "POST" });
+      location.reload();
+    });
+
+    document.getElementById("new-project-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+
+      const name = document.getElementById("project-name").value.trim();
+      const description = document.getElementById("project-description").value.trim();
+      const projectType = document.getElementById("project-type").value;
+      const developerCalls = Number(document.getElementById("developer-calls").value);
+      const reviewerCalls = Number(document.getElementById("reviewer-calls").value);
+      const button = document.getElementById("create-project-btn");
+      const result = document.getElementById("project-result");
+
+      if (!confirm("Create a new public GitHub repository for \"" + name + "\"? No AI agent will run automatically.")) {
+        return;
+      }
+
+      button.disabled = true;
+      button.textContent = "Creating project…";
+      result.style.display = "none";
+
+      try {
+        const response = await fetch("/api/projects", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name,
+            description,
+            project_type: projectType,
+            developer_calls: developerCalls,
+            reviewer_calls: reviewerCalls
+          })
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error([data.error, ...(data.details || []), data.detail].filter(Boolean).join(" "));
+        }
+
+        result.replaceChildren();
+        const message = document.createElement("span");
+        message.textContent = "Project created successfully. ";
+
+        const link = document.createElement("a");
+        link.href = data.repository_url;
+        link.target = "_blank";
+        link.rel = "noreferrer";
+        link.textContent = "Open " + data.repository;
+
+        result.append(message, link);
+        result.style.display = "block";
+        event.target.reset();
+      } catch (error) {
+        result.textContent = error.message;
+        result.style.background = "#fdeaea";
+        result.style.color = "#a82c2c";
+        result.style.display = "block";
+      } finally {
+        button.disabled = false;
+        button.textContent = "Create project";
+      }
+    });
+
     document.getElementById("new-task-form").addEventListener("submit", (event) => {
       event.preventDefault();
       const text = document.getElementById("task-text").value.trim();
@@ -489,6 +667,7 @@
     });
 
     loadConsole();
+    loadAuth();
   </script>
 </body>
 </html>
