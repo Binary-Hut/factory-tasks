@@ -177,3 +177,14 @@ test('OAuth workflow permission is part of the project provisioning contract', (
   const template = require('../.factory/project-template.json');
   assert.ok(template.security.oauth_scopes_required.includes('workflow'));
 });
+
+
+test('project provisioner targets the Binary Hut organization endpoint', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const source = fs.readFileSync(path.resolve(__dirname, '../api/projects.js'), 'utf8');
+
+  assert.match(source, /api\.github\.com\/orgs\/\$\{encodeURIComponent\(organization\)\}\/repos/);
+  assert.doesNotMatch(source, /api\.github\.com\/user\/repos/);
+  assert.match(source, /Binary-Hut\/factory-tasks/);
+});
