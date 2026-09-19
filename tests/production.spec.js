@@ -31,3 +31,9 @@ test('production: can delete a task', async ({ page }) => {
   await page.click('.delete-btn');
   await expect(page.locator('.task')).toHaveCount(0);
 });
+
+
+test('production: Factory Console route loads', async ({ page }) => {
+  await page.goto(LIVE_URL + '/console/');
+  await expect(page.locator('h1')).toHaveText('Factory Console');
+});
