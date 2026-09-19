@@ -1,0 +1,112 @@
+name: Codex Feature Developer
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Feature branch to implement"
+        required: true
+        type: string
+      plan_path:
+        description: "Approved task plan file"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: codex-feature-developer-${{ inputs.branch }}
+  cancel-in-progress: false
+
+jobs:
+  develop:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check OpenAI API key
+        run: |
+          if [ -z "${{ secrets.OPENAI_API_KEY }}" ]; then
+            echo "OPENAI_API_KEY is not configured." >&2
+            exit 1
+          fi
+
+      - name: Check out feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch }}
+          fetch-depth: 0
+
+      - name: Verify approved plan exists
+        run: |
+          test -f "${{ inputs.plan_path }}" || {
+            echo "Plan file not found: ${{ inputs.plan_path }}" >&2
+            exit 1
+          }
+          grep -q "Status: READY_FOR_DEVELOPMENT" "${{ inputs.plan_path }}" || {
+            echo "Plan is not marked READY_FOR_DEVELOPMENT." >&2
+            exit 1
+          }
+
+      - name: Ask Codex Developer to implement approved plan
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          model: gpt-5-mini
+          effort: low
+          permission-profile: ":workspace"
+          prompt: |
+            You are the Developer for Factory Tasks.
+
+            Read these files before making changes:
+            1. AI_POLICY.md
+            2. AGENTS.md
+            3. PRODUCT.md
+            4. ARCHITECTURE.md
+            5. .ai/roles/DEVELOPER.md
+            6. ${{ inputs.plan_path }}
+
+            Implement ONLY the approved plan in ${{ inputs.plan_path }}.
+
+            Rules:
+            - Follow AI_POLICY.md and AGENTS.md exactly.
+            - Stay on the current feature branch.
+            - Make the smallest reasonable implementation.
+            - Do not add dependencies, frameworks, backend, database, auth, or APIs.
+            - Update or add only the tests required by the approved plan.
+            - Do not perform unrelated refactoring or review work.
+            - Do not commit, push, merge, or create a pull request.
+            - Do not run npm install.
+            - Do not install browsers.
+            - Stop once the implementation and matching tests are edited.
+
+      - name: Ensure Codex made changes
+        run: |
+          if git diff --quiet; then
+            echo "Codex made no changes." >&2
+            exit 1
+          fi
+          git status --short
+
+      - name: Set up Node.js for deterministic validation
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install test tools
+        run: npm install
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run source tests
+        run: npx playwright test tests/tasks.spec.js
+
+      - name: Commit validated implementation to feature branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Implement approved feature plan with Codex"
+          git push origin HEAD:"${{ inputs.branch }}"
