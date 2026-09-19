@@ -73,22 +73,48 @@ jobs:
       - name: Run Gemini reviewer
         id: gemini
         env:
-          GEMINI_CLI_TRUST_WORKSPACE: "true"
-        uses: google-github-actions/run-gemini-cli@v0
-        with:
-          gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
-          gemini_model: gemini-3.1-flash-lite
-          prompt: |
-            You are the independent Reviewer for ${{ github.repository }}. This is REVIEW-ONLY.
-            Read AI_POLICY.md, AGENTS.md, PRODUCT.md, ARCHITECTURE.md, .ai/roles/REVIEWER.md, the approved task plan under .ai/tasks/, .gemini-review-meta.txt, and .gemini-review.diff.
-            Check acceptance criteria, regressions/unnecessary complexity, deterministic tests, and repository policy. Do not suggest style-only changes or redesign the feature.
-            Return exactly these sections:
-            ## Acceptance criteria check
-            ## Concrete issues found
-            ## Test coverage check
-            ## Policy/scope check
-            ## Merge readiness
-            In Merge readiness, write exactly READY or CHANGES REQUIRED.
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          set -euo pipefail
+          {
+            cat <<'PROMPT'
+          You are the independent Reviewer for this repository. This is REVIEW-ONLY.
+          Check acceptance criteria, regressions/unnecessary complexity, deterministic tests, and repository policy.
+          Do not suggest style-only changes or redesign the feature.
+          Return exactly these sections:
+          ## Acceptance criteria check
+          ## Concrete issues found
+          ## Test coverage check
+          ## Policy/scope check
+          ## Merge readiness
+          In Merge readiness, write exactly READY or CHANGES REQUIRED.
+          PROMPT
+            for file in AI_POLICY.md AGENTS.md PRODUCT.md ARCHITECTURE.md .ai/roles/REVIEWER.md .gemini-review-meta.txt; do
+              if [ -f "$file" ]; then printf '\n\n### FILE: %s\n' "$file"; cat "$file"; fi
+            done
+            for file in .ai/tasks/*.md; do
+              if [ -f "$file" ]; then printf '\n\n### TASK PLAN: %s\n' "$file"; cat "$file"; fi
+            done
+            printf '\n\n### PR DIFF\n'
+            head -c 120000 .gemini-review.diff
+          } > /tmp/gemini-prompt.txt
+
+          jq -n --rawfile prompt /tmp/gemini-prompt.txt             '{contents:[{parts:[{text:$prompt}]}]}' > /tmp/gemini-request.json
+
+          HTTP_CODE="$(curl --silent --show-error             --output /tmp/gemini-response.json             --write-out '%{http_code}'             --request POST             --header "x-goog-api-key: $GEMINI_API_KEY"             --header "Content-Type: application/json"             --data-binary @/tmp/gemini-request.json             "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent")"
+
+          if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
+            jq -r '.error.message // "Gemini API request failed."' /tmp/gemini-response.json >&2
+            exit 1
+          fi
+
+          REVIEW_BODY="$(jq -r '[.candidates[0].content.parts[]?.text] | join("\n")' /tmp/gemini-response.json)"
+          test -n "$REVIEW_BODY" || { echo "Gemini returned an empty review." >&2; exit 1; }
+          {
+            echo "summary<<EOF"
+            echo "$REVIEW_BODY"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Post review and record state
         env:
