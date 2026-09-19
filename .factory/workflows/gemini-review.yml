@@ -1,0 +1,124 @@
+name: Gemini PR Reviewer
+
+on:
+  pull_request:
+    types: [labeled, reopened]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "Pull request number to review"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: gemini-review-${{ github.event.pull_request.number || inputs.pr_number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      contains(github.event.pull_request.labels.*.name, 'ready-for-ai-review')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check Gemini API key
+        run: |
+          if [ -z "${{ secrets.GEMINI_API_KEY }}" ]; then
+            echo "GEMINI_API_KEY is not configured for this repository." >&2
+            exit 1
+          fi
+
+      - name: Resolve PR metadata
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_PR: ${{ github.event.pull_request.number }}
+          EVENT_HEAD: ${{ github.event.pull_request.head.ref }}
+          EVENT_BASE: ${{ github.event.pull_request.base.ref }}
+          INPUT_PR: ${{ inputs.pr_number }}
+          REPO: ${{ github.repository }}
+        run: |
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            PR_NUMBER="$INPUT_PR"
+            HEAD_REF="$(gh api "repos/$REPO/pulls/$PR_NUMBER" --jq .head.ref)"
+            BASE_REF="$(gh api "repos/$REPO/pulls/$PR_NUMBER" --jq .base.ref)"
+          else
+            PR_NUMBER="$EVENT_PR"; HEAD_REF="$EVENT_HEAD"; BASE_REF="$EVENT_BASE"
+          fi
+          echo "number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+          echo "head_ref=$HEAD_REF" >> "$GITHUB_OUTPUT"
+          echo "base_ref=$BASE_REF" >> "$GITHUB_OUTPUT"
+
+      - name: Check out PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.pr.outputs.head_ref }}
+          fetch-depth: 0
+
+      - name: Build compact review context
+        env:
+          BASE_REF: ${{ steps.pr.outputs.base_ref }}
+        run: |
+          git fetch origin "$BASE_REF"
+          git diff --no-ext-diff --unified=80 "origin/$BASE_REF"...HEAD > .gemini-review.diff
+          printf "PR #%s\nHead: %s\nBase: %s\n" "${{ steps.pr.outputs.number }}" "${{ steps.pr.outputs.head_ref }}" "${{ steps.pr.outputs.base_ref }}" > .gemini-review-meta.txt
+
+      - name: Run Gemini reviewer
+        id: gemini
+        env:
+          GEMINI_CLI_TRUST_WORKSPACE: "true"
+        uses: google-github-actions/run-gemini-cli@v0
+        with:
+          gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
+          gemini_model: gemini-3.1-flash-lite
+          prompt: |
+            You are the independent Reviewer for ${{ github.repository }}. This is REVIEW-ONLY.
+            Read AI_POLICY.md, AGENTS.md, PRODUCT.md, ARCHITECTURE.md, .ai/roles/REVIEWER.md, the approved task plan under .ai/tasks/, .gemini-review-meta.txt, and .gemini-review.diff.
+            Check acceptance criteria, regressions/unnecessary complexity, deterministic tests, and repository policy. Do not suggest style-only changes or redesign the feature.
+            Return exactly these sections:
+            ## Acceptance criteria check
+            ## Concrete issues found
+            ## Test coverage check
+            ## Policy/scope check
+            ## Merge readiness
+            In Merge readiness, write exactly READY or CHANGES REQUIRED.
+
+      - name: Post review and record state
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+          REVIEW_BODY: ${{ steps.gemini.outputs.summary }}
+        run: |
+          printf "## Gemini independent review\n\n%s\n\n_Model: gemini-3.1-flash-lite · automated review-only workflow_\n" "$REVIEW_BODY" > /tmp/review.md
+          gh pr comment "$PR_NUMBER" --body-file /tmp/review.md
+          gh label create "ai-review-ready" --color "0E8A16" --description "AI review passed" --force
+          gh label create "ai-review-changes-required" --color "D93F0B" --description "AI review found changes required" --force
+          gh label create "ai-review-paused" --color "BFD4F2" --description "AI review paused" --force
+          for L in ai-review-ready ai-review-changes-required ai-review-paused; do gh api --method DELETE "repos/${{ github.repository }}/issues/$PR_NUMBER/labels/$L" >/dev/null 2>&1 || true; done
+          if printf "%s" "$REVIEW_BODY" | grep -q "CHANGES REQUIRED"; then gh issue edit "$PR_NUMBER" --add-label ai-review-changes-required;
+          elif printf "%s" "$REVIEW_BODY" | grep -q "READY"; then gh issue edit "$PR_NUMBER" --add-label ai-review-ready;
+          else gh issue edit "$PR_NUMBER" --add-label ai-review-paused; fi
+
+      - name: Pause reviewer after failure
+        if: failure() && steps.pr.outputs.number != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+        run: |
+          gh label create "ai-review-paused" --color "BFD4F2" --description "AI review paused" --force
+          gh issue edit "$PR_NUMBER" --add-label ai-review-paused
+
+      - name: Disarm reviewer after one call
+        if: always() && steps.pr.outputs.number != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+        run: |
+          gh api --method DELETE "repos/${{ github.repository }}/issues/$PR_NUMBER/labels/ready-for-ai-review" >/dev/null 2>&1 || true

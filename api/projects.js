@@ -3,12 +3,16 @@ const { validateProjectRequest, repositoryDescription, projectDocs } = require('
 
 const SOURCE_REPO = 'MusicalHut/factory-tasks';
 const COPY_FILES = [
-  'AI_POLICY.md',
-  '.ai/WORKFLOW_STATE.md',
-  '.ai/BRANCH_OWNERSHIP.md',
-  '.ai/roles/PLANNER.md',
-  '.ai/roles/DEVELOPER.md',
-  '.ai/roles/REVIEWER.md'
+  ['AI_POLICY.md', 'AI_POLICY.md'],
+  ['.ai/WORKFLOW_STATE.md', '.ai/WORKFLOW_STATE.md'],
+  ['.ai/BRANCH_OWNERSHIP.md', '.ai/BRANCH_OWNERSHIP.md'],
+  ['.ai/roles/PLANNER.md', '.ai/roles/PLANNER.md'],
+  ['.ai/roles/DEVELOPER.md', '.ai/roles/DEVELOPER.md'],
+  ['.ai/roles/REVIEWER.md', '.ai/roles/REVIEWER.md'],
+  ['.factory/workflows/test.yml', '.github/workflows/test.yml'],
+  ['.factory/workflows/branch-collision-guard.yml', '.github/workflows/branch-collision-guard.yml'],
+  ['.factory/workflows/codex-feature-developer.yml', '.github/workflows/codex-feature-developer.yml'],
+  ['.factory/workflows/gemini-review.yml', '.github/workflows/gemini-review.yml']
 ];
 
 async function github(url, token, options = {}) {
@@ -79,6 +83,12 @@ module.exports = async function handler(req, res) {
     return res.status(401).json({ error: 'Sign in with the authorized GitHub account first.' });
   }
 
+  if (!Array.isArray(session.scopes) || !session.scopes.includes('workflow')) {
+    return res.status(403).json({
+      error: 'Reconnect GitHub once to allow the factory to install GitHub Actions workflows.'
+    });
+  }
+
   let body = req.body || {};
   if (typeof body === 'string') {
     try {
@@ -137,9 +147,9 @@ module.exports = async function handler(req, res) {
       session.token
     );
 
-    for (const path of COPY_FILES) {
-      const content = await sourceFile(path, session.token);
-      await createFile(owner, project.slug, path, content, session.token);
+    for (const [sourcePath, destinationPath] of COPY_FILES) {
+      const content = await sourceFile(sourcePath, session.token);
+      await createFile(owner, project.slug, destinationPath, content, session.token);
     }
 
     return res.status(201).json({
@@ -147,7 +157,7 @@ module.exports = async function handler(req, res) {
       project,
       repository: createdRepo.full_name,
       repository_url: createdRepo.html_url,
-      next: 'Repository created. Planning can begin; no AI agent was started automatically.'
+      next: 'Repository created with factory workflows. Planning can begin; no AI agent was started automatically.'
     });
   } catch (error) {
     const validationDetails = Array.isArray(error.data?.errors)

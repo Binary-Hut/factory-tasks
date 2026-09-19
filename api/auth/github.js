@@ -24,7 +24,7 @@ module.exports = async function handler(req, res) {
   const authorize = new URL('https://github.com/login/oauth/authorize');
   authorize.searchParams.set('client_id', config.clientId);
   authorize.searchParams.set('redirect_uri', callback);
-  authorize.searchParams.set('scope', 'public_repo');
+  authorize.searchParams.set('scope', 'public_repo workflow');
   authorize.searchParams.set('state', state);
 
   res.setHeader('Set-Cookie', cookie(STATE_COOKIE, state, { maxAge: 600 }));

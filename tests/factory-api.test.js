@@ -144,3 +144,18 @@ test('repository metadata stays short while generated docs preserve the full bri
   assert.ok(docs['PROJECT_REQUEST.md'].includes(longBrief.trim()));
   assert.ok(docs['PRODUCT.md'].includes(longBrief.trim()));
 });
+
+test('project template provisions the core factory workflow set', () => {
+  const template = require('../.factory/project-template.json');
+  const copied = template.starter_files.copy_from_factory.join('\n');
+  assert.match(copied, /codex-feature-developer\.yml/);
+  assert.match(copied, /gemini-review\.yml/);
+  assert.match(copied, /branch-collision-guard\.yml/);
+  assert.match(copied, /workflows\/test\.yml/);
+  assert.deepEqual(template.security.oauth_scopes_required, ['public_repo', 'workflow']);
+});
+
+test('OAuth workflow permission is part of the project provisioning contract', () => {
+  const template = require('../.factory/project-template.json');
+  assert.ok(template.security.oauth_scopes_required.includes('workflow'));
+});

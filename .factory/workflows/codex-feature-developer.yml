@@ -1,0 +1,136 @@
+name: Codex Feature Developer
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Feature branch to implement"
+        required: true
+        type: string
+      plan_path:
+        description: "Approved task plan file"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: codex-feature-developer-${{ inputs.branch }}
+  cancel-in-progress: false
+
+jobs:
+  develop:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check OpenAI API key
+        run: |
+          if [ -z "${{ secrets.OPENAI_API_KEY }}" ]; then
+            echo "OPENAI_API_KEY is not configured for this repository." >&2
+            exit 1
+          fi
+
+      - name: Check out feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch }}
+          fetch-depth: 0
+
+      - name: Verify approved plan exists
+        run: |
+          test -f "${{ inputs.plan_path }}" || { echo "Plan file not found." >&2; exit 1; }
+          grep -Eq "Status: (READY_FOR_DEVELOPMENT|READY_FOR_RETRY)" "${{ inputs.plan_path }}" || {
+            echo "Plan must be READY_FOR_DEVELOPMENT or READY_FOR_RETRY." >&2
+            exit 1
+          }
+
+      - name: Mark developer stage active
+        env:
+          PLAN_PATH: ${{ inputs.plan_path }}
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import os
+          p = Path(os.environ["PLAN_PATH"])
+          t = p.read_text()
+          if "Status: READY_FOR_DEVELOPMENT" in t:
+              t = t.replace("Status: READY_FOR_DEVELOPMENT", "Status: DEVELOPING", 1)
+          elif "Status: READY_FOR_RETRY" in t:
+              t = t.replace("Status: READY_FOR_RETRY", "Status: DEVELOPING", 1)
+          else:
+              raise SystemExit("Task is not startable.")
+          p.write_text(t)
+          PY
+
+      - name: Ask Codex Developer to implement approved plan
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          model: gpt-5-mini
+          effort: low
+          permission-profile: ":workspace"
+          prompt: |
+            You are the Developer for ${{ github.repository }}.
+            Read AI_POLICY.md, .ai/BRANCH_OWNERSHIP.md, AGENTS.md, PRODUCT.md, ARCHITECTURE.md, .ai/roles/DEVELOPER.md, and ${{ inputs.plan_path }}.
+            Implement ONLY the approved plan. Follow its approved architecture and dependency decisions exactly.
+            Do not add auth, payments, databases, external APIs, paid services, deployment changes, or unapproved dependencies/frameworks.
+            Add deterministic tests for changed behavior. Do not commit, push, merge, create a PR, or install tools. Stop after editing the implementation and tests.
+
+      - name: Ensure Codex made changes
+        run: |
+          if git diff --quiet; then echo "Codex made no changes." >&2; exit 1; fi
+          git status --short
+
+      - name: Set up Node.js for deterministic validation
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Run deterministic validation
+        run: |
+          set -euo pipefail
+          test -f package.json || { echo "Implementation must provide a deterministic Node test harness for this factory version." >&2; exit 1; }
+          if [ -f package-lock.json ]; then npm ci; else npm install; fi
+          npm test
+
+      - name: Advance plan status
+        env:
+          PLAN_PATH: ${{ inputs.plan_path }}
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import os
+          p = Path(os.environ["PLAN_PATH"])
+          t = p.read_text()
+          if "Status: DEVELOPING" not in t: raise SystemExit("Expected DEVELOPING status.")
+          p.write_text(t.replace("Status: DEVELOPING", "Status: READY_FOR_REVIEW", 1))
+          PY
+
+      - name: Commit validated implementation
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Implement approved feature plan with Codex"
+          git push origin HEAD:"${{ inputs.branch }}"
+
+      - name: Pause task if developer stage fails
+        if: failure()
+        env:
+          PLAN_PATH: ${{ inputs.plan_path }}
+        run: |
+          if [ ! -f "$PLAN_PATH" ]; then exit 0; fi
+          python - <<'PY'
+          from pathlib import Path
+          import os
+          p = Path(os.environ["PLAN_PATH"])
+          t = p.read_text()
+          if "Status: DEVELOPING" in t: p.write_text(t.replace("Status: DEVELOPING", "Status: PAUSED_AI_FAILURE", 1))
+          PY
+          if git diff --quiet -- "$PLAN_PATH"; then exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$PLAN_PATH"
+          git commit -m "Pause AI task after failed developer run"
+          git push origin HEAD:"${{ inputs.branch }}" || true
