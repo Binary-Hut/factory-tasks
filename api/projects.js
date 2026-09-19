@@ -4,7 +4,6 @@ const { validateProjectRequest, projectDocs } = require('../lib/factory-project'
 const SOURCE_REPO = 'MusicalHut/factory-tasks';
 const COPY_FILES = [
   'AI_POLICY.md',
-  'AGENTS.md',
   '.ai/WORKFLOW_STATE.md',
   '.ai/BRANCH_OWNERSHIP.md',
   '.ai/roles/PLANNER.md',
