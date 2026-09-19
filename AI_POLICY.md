@@ -28,6 +28,11 @@ and inexpensive.
 
 ## Cost controls
 
+- Maximum automatic AI model calls per task stage: 1.
+- Default maximum paid AI model calls per task: 2.
+- No automatic retries after an AI call fails, times out, or produces an invalid result.
+- A second attempt must be explicitly triggered by the owner after the failure is understood.
+- Reviewer re-runs must be explicitly re-armed; do not re-review automatically on every new commit.
 - Do not run broad repository reviews during an auto-fix.
 - Do not read unrelated files.
 - Do not reinstall tools or rerun full test suites inside the AI step unless
@@ -93,6 +98,9 @@ If automation cannot safely continue within the limits above:
 - Automatic repair reasoning effort: low
 - Automatic repair attempts: 1
 - Automatic model escalation: disabled
+- Automatic AI calls per task stage: 1
+- Default paid AI calls per task: 2
+- Automatic AI retry after failure: disabled
 - Production auto-fix: disabled
 - Maximum modifying AI agents on one task: 2
 
