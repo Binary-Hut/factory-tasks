@@ -43,3 +43,18 @@ Files such as PRODUCT.md and ARCHITECTURE.md describe one specific application,
 so they must be generated for that project instead of copied from another app.
 
 This prevents accidental inheritance of unrelated product requirements.
+
+
+## Project workflow bootstrap
+
+New projects receive project-neutral GitHub Actions workflows for deterministic tests,
+branch-collision protection, one explicitly started Codex development call, and one
+explicitly armed Gemini review call.
+
+The Factory Console OAuth session must include both `public_repo` and `workflow`.
+GitHub requires the `workflow` OAuth scope when an OAuth app adds or updates files
+under `.github/workflows/`.
+
+Project creation itself never starts a paid AI agent. AI credentials remain GitHub
+Actions secrets in each project repository in the current personal-account setup.
+A future organization-level setup can centralize those secrets across repositories.
