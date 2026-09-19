@@ -1,7 +1,7 @@
 const { getConfig, isConfigured, readSession } = require('../lib/factory-auth');
 const { validateProjectRequest, repositoryDescription, projectDocs } = require('../lib/factory-project');
 
-const SOURCE_REPO = 'MusicalHut/factory-tasks';
+const SOURCE_REPO = 'Binary-Hut/factory-tasks';
 const COPY_FILES = [
   ['AI_POLICY.md', 'AI_POLICY.md'],
   ['.ai/WORKFLOW_STATE.md', '.ai/WORKFLOW_STATE.md'],
@@ -77,9 +77,11 @@ module.exports = async function handler(req, res) {
   }
 
   const session = readSession(req);
-  const owner = getConfig().owner;
+  const config = getConfig();
+  const authorizedLogin = config.owner;
+  const organization = config.organization;
 
-  if (!session || session.login.toLowerCase() !== owner.toLowerCase()) {
+  if (!session || session.login.toLowerCase() !== authorizedLogin.toLowerCase()) {
     return res.status(401).json({ error: 'Sign in with the authorized GitHub account first.' });
   }
 
@@ -110,7 +112,7 @@ module.exports = async function handler(req, res) {
   let createdRepo = null;
 
   try {
-    createdRepo = await github('https://api.github.com/user/repos', session.token, {
+    createdRepo = await github(`https://api.github.com/orgs/${encodeURIComponent(organization)}/repos`, session.token, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -128,15 +130,15 @@ module.exports = async function handler(req, res) {
 
     // README is intentionally first: GitHub's Contents API can initialize an
     // empty repository when the first file is created.
-    await createFile(owner, project.slug, 'README.md', base64(docs['README.md']), session.token);
+    await createFile(organization, project.slug, 'README.md', base64(docs['README.md']), session.token);
 
     for (const [path, content] of Object.entries(docs)) {
       if (path === 'README.md') continue;
-      await createFile(owner, project.slug, path, base64(content), session.token);
+      await createFile(organization, project.slug, path, base64(content), session.token);
     }
 
     await createFile(
-      owner,
+      organization,
       project.slug,
       '.factory/project.json',
       base64(JSON.stringify({
@@ -149,7 +151,7 @@ module.exports = async function handler(req, res) {
 
     for (const [sourcePath, destinationPath] of COPY_FILES) {
       const content = await sourceFile(sourcePath, session.token);
-      await createFile(owner, project.slug, destinationPath, content, session.token);
+      await createFile(organization, project.slug, destinationPath, content, session.token);
     }
 
     return res.status(201).json({

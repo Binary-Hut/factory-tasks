@@ -56,5 +56,4 @@ GitHub requires the `workflow` OAuth scope when an OAuth app adds or updates fil
 under `.github/workflows/`.
 
 Project creation itself never starts a paid AI agent. AI credentials remain GitHub
-Actions secrets in each project repository in the current personal-account setup.
-A future organization-level setup can centralize those secrets across repositories.
+Actions secrets can now be centralized at the Binary Hut organization level and granted to the public project repositories that need them. The Factory Console creates new repositories inside Binary Hut; the authorized OAuth user remains separate from the destination organization.
