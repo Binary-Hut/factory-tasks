@@ -2,7 +2,7 @@ name: Gemini PR Reviewer
 
 on:
   pull_request:
-    types: [labeled, synchronize, reopened]
+    types: [labeled, reopened]
   workflow_dispatch:
     inputs:
       pr_number:
@@ -140,3 +140,14 @@ jobs:
           } > /tmp/gemini-review.md
 
           gh pr comment "$PR_NUMBER" --body-file /tmp/gemini-review.md
+
+
+      # Cost guard: one Gemini call per explicit review arm.
+      # Re-add the label only when another independent review is intentionally needed.
+      - name: Disarm automatic reviewer after this run
+        if: always() && steps.pr.outputs.number != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+        run: |
+          gh api --method DELETE             -H "Accept: application/vnd.github+json"             "repos/${{ github.repository }}/issues/$PR_NUMBER/labels/ready-for-ai-review"             >/dev/null 2>&1 || true
