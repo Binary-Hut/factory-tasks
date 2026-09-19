@@ -92,6 +92,9 @@ jobs:
           set -euo pipefail
           test -f package.json || { echo "Implementation must provide a deterministic Node test harness for this factory version." >&2; exit 1; }
           if [ -f package-lock.json ]; then npm ci; else npm install; fi
+          if npm ls @playwright/test --depth=0 >/dev/null 2>&1; then
+            npx playwright install --with-deps chromium
+          fi
           npm test
 
       - name: Advance plan status
