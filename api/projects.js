@@ -1,5 +1,5 @@
 const { getConfig, isConfigured, readSession } = require('../lib/factory-auth');
-const { validateProjectRequest, projectDocs } = require('../lib/factory-project');
+const { validateProjectRequest, repositoryDescription, projectDocs } = require('../lib/factory-project');
 
 const SOURCE_REPO = 'MusicalHut/factory-tasks';
 const COPY_FILES = [
@@ -105,7 +105,7 @@ module.exports = async function handler(req, res) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         name: project.slug,
-        description: project.description,
+        description: repositoryDescription(project),
         private: false,
         auto_init: false,
         has_issues: true,
@@ -150,12 +150,23 @@ module.exports = async function handler(req, res) {
       next: 'Repository created. Planning can begin; no AI agent was started automatically.'
     });
   } catch (error) {
+    const validationDetails = Array.isArray(error.data?.errors)
+      ? error.data.errors
+          .map((item) => typeof item === 'string' ? item : item?.message || item?.code || item?.field)
+          .filter(Boolean)
+          .slice(0, 3)
+      : [];
+
     const response = {
       error: error.status === 422
         ? 'GitHub could not create this project. The repository name may already exist.'
         : 'Project provisioning stopped before completion.',
       detail: error.message
     };
+
+    if (validationDetails.length) {
+      response.validation_details = validationDetails;
+    }
 
     if (createdRepo?.html_url) {
       response.repository_url = createdRepo.html_url;
