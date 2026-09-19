@@ -412,8 +412,15 @@
           return;
         }
 
-        if (auth.authenticated) {
-          note.textContent = "Signed in as " + auth.login + ". New repositories will be created under this GitHub account.";
+        if (auth.authenticated && !auth.workflow_authorized) {
+          note.textContent = "Reconnect GitHub once to allow new projects to receive their factory workflows.";
+          form.hidden = true;
+          authButton.hidden = false;
+          authButton.textContent = "Reconnect GitHub";
+          authButton.href = "/api/auth/github";
+          logoutButton.hidden = false;
+        } else if (auth.authenticated) {
+          note.textContent = "Signed in as " + auth.login + ". New repositories will be created with their factory workflows installed.";
           form.hidden = false;
           authButton.hidden = true;
           logoutButton.hidden = false;
