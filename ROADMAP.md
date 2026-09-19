@@ -34,7 +34,7 @@ is confirmed working.
   Intentional delete bugs were introduced. The pipeline detected them,
   triggered a low-cost Codex repair, validated the fix, and restored the app.
 
-- [ ] **Phase 8 — Separate AI roles**
+- [x] **Phase 8 — Separate AI roles**
   Introduce a minimal multi-agent structure before adding orchestration tools.
 
   Start with only these roles:
@@ -66,13 +66,21 @@ is confirmed working.
   Phase 8 is complete when one small feature can move through:
   request → plan → branch → implementation → review → tests → merge.
 
-- [ ] **Phase 9 — Parallel branches and isolated agent workspaces**
-  Allow multiple tasks to run at the same time without agents editing the same
-  files or branch. Keep the limit small and follow AI_POLICY.md.
+- [x] **Phase 9 — Safe task state, budgets, and parallel branch ownership**
+  Tasks can pause/resume without automatic retries, one modifying agent owns a
+  task at a time, and the branch collision guard prevents overlapping file edits.
+  AI call budgets and explicit reviewer arming limit accidental spend.
 
-- [ ] **Phase 10 — Agent orchestration UI**
-  Evaluate Vibe Kanban or a maintained successor only when there are enough
-  concurrent agent tasks for a visual orchestration layer to be genuinely useful.
+- [ ] **Phase 9.5 — Task registry**
+  Keep a simple GitHub-backed record of task state, branch, agent ownership,
+  AI calls used, and result. This becomes the data model for the owner UI.
+
+- [ ] **Phase 10 — Factory Console MVP**
+  Build our own non-technical control surface over the GitHub factory.
+  Start with Dashboard, New Task, Task Details, and state-aware approval actions.
+  GitHub remains the source of truth; the console must not duplicate orchestration
+  state. Vibe Kanban/OpenHands may be optional execution tools later, not the
+  foundation of the owner interface.
 
 - [ ] **Phase 11 — First productive Musical Hut project**
   Reuse this factory structure for a small real business tool, such as a
