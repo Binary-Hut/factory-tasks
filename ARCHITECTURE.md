@@ -42,3 +42,24 @@ Only a deliberate, owner-approved decision to add one of the PRODUCT.md
 Until then, all future work should stay inside this single-file model
 (or split into a small number of plain files if `index.html` becomes too
 large to read comfortably — see AGENTS.md).
+
+
+## Factory Console control plane
+
+The owner-facing Factory Console is separate from the Factory Tasks product at
+the site root. The root task manager remains a static localStorage application.
+
+The Console may use small Vercel serverless functions under `api/` for
+owner-approved factory administration. This exception exists because privileged
+actions such as creating GitHub repositories cannot safely be performed in
+browser JavaScript.
+
+Current control-plane rules:
+
+- GitHub OAuth Client Secret and session secret are server-side environment variables.
+- The browser never receives a reusable GitHub write credential.
+- The signed-in session is encrypted and stored in an HttpOnly, Secure cookie.
+- Only the configured GitHub owner account may provision projects.
+- Project creation does not automatically run a paid AI model.
+- No database is required; GitHub remains the source of truth.
+- The initial OAuth permission is limited to public-repository operations.
