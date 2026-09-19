@@ -5,11 +5,11 @@ const {
   encryptSession,
   decryptSession,
   isConfigured
-} = require('../api/_lib/auth');
+} = require('../lib/factory-auth');
 const {
   slugify,
   validateProjectRequest
-} = require('../api/_lib/project');
+} = require('../lib/factory-project');
 
 const SECRET = 'this-is-a-test-session-secret-with-enough-length';
 
