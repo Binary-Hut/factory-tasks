@@ -90,6 +90,11 @@ is confirmed working.
   Reuse this factory structure for a small real business tool, such as a
   Student Practice Tracker, while preserving the same cost and safety controls.
 
+- [x] **Phase 10.5 — Explicit production deployment**
+  Registered projects may select an approved provider. Production deployment is
+  a separate owner-confirmed Console action, runs through a deterministic
+  workflow, verifies the live response, and never retries automatically.
+
 
 ## Independent verification
 

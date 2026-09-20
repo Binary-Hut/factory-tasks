@@ -67,6 +67,7 @@ Only show actions valid for the current state:
 - Approve Retry
 - Send for Review
 - Approve & Merge
+- Deploy Production
 - Open Preview
 
 Dangerous or costly actions require confirmation.
@@ -84,6 +85,8 @@ Dangerous or costly actions require confirmation.
 | REVIEWING | Independent review in progress |
 | CHANGES_REQUIRED | Changes requested |
 | READY_TO_MERGE | Ready for your approval |
+| MERGED | Merged — production not started |
+| DEPLOYING | Deploying to production |
 | DONE | Live |
 
 ## Failure messages

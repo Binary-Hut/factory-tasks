@@ -32,6 +32,15 @@ A trusted server-side action will then:
 6. register the project in `projects.json`,
 7. optionally connect deployment.
 
+## Explicit production deployment
+
+Projects configured for Vercel receive `vercel-production.yml`. The Console
+dispatches it only after a separate owner confirmation; merging does not invoke
+this workflow. The workflow requires the organization secret `VERCEL_TOKEN`,
+uses the `VERCEL_SCOPE` organization variable when set (otherwise the current
+Musical Hut Vercel scope), pins the CLI, verifies HTTP success, and optionally
+runs a project-specific `.factory/verify-production.sh` contract.
+
 The browser must never contain a GitHub write token.
 
 ## Why shared and generated files are separated

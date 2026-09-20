@@ -1,0 +1,81 @@
+name: Deploy Production
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-deployment-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_SCOPE: ${{ vars.VERCEL_SCOPE || 'musichutonline-3481' }}
+      VERCEL_PROJECT_NAME: ${{ github.event.repository.name }}
+    steps:
+      - name: Check out approved main branch
+        uses: actions/checkout@v4
+
+      - name: Verify deployment credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo "::error::Vercel deployment requires the VERCEL_TOKEN organization secret."
+            exit 1
+          fi
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install pinned Vercel CLI
+        run: npm install --global vercel@50.1.0
+
+      - name: Ensure the Vercel project exists
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! vercel project inspect "$VERCEL_PROJECT_NAME" --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN" >/dev/null 2>&1; then
+            vercel project add "$VERCEL_PROJECT_NAME" --yes --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN"
+          fi
+
+      - name: Deploy approved main commit to production
+        id: deploy
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL="$(vercel deploy --prod --yes --scope "$VERCEL_SCOPE" --project "$VERCEL_PROJECT_NAME" --token "$VERCEL_TOKEN")"
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo "Production deployment: $URL" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Verify production response
+        env:
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.url }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in {1..18}; do
+            STATUS="$(curl -L -s -o /dev/null -w '%{http_code}' "$DEPLOYMENT_URL")"
+            if [ "$STATUS" = "200" ]; then
+              echo "Production is responding successfully." >> "$GITHUB_STEP_SUMMARY"
+              break
+            fi
+            if [ "$attempt" = "18" ]; then
+              echo "::error::Production did not return HTTP 200 in time."
+              exit 1
+            fi
+            sleep 10
+          done
+
+          if [ -f .factory/verify-production.sh ]; then
+            chmod +x .factory/verify-production.sh
+            ./.factory/verify-production.sh
+          fi

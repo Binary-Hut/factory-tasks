@@ -320,6 +320,13 @@
                 <option value="other">Other</option>
               </select>
             </label>
+            <label class="form-field">
+              <span>Production deployment</span>
+              <select id="project-deployment">
+                <option value="none">Decide later</option>
+                <option value="vercel">Vercel</option>
+              </select>
+            </label>
           </div>
 
           <label class="form-field">
@@ -431,12 +438,15 @@
           const deployment = project.deployment && project.deployment.live_url
             ? '<a class="button" href="' + project.deployment.live_url + '" target="_blank" rel="noreferrer">Open live app</a>'
             : "";
+          const deployAction = project.deployment?.provider && project.deployment.provider !== "none"
+            ? '<button class="button deploy-project-btn" type="button" data-repo="' + escapeHtml(project.repository) + '" data-provider="' + escapeHtml(project.deployment.provider) + '">Deploy production</button>'
+            : '';
           item.innerHTML =
             '<div class="run-row"><div><div class="item-title">' + escapeHtml(project.name) + '</div>' +
             '<div class="item-meta">' + escapeHtml(project.project_type || "project") + ' · ' +
             escapeHtml(project.lifecycle_status || "active") + '</div></div>' +
             '<div class="toolbar"><button class="button project-task-btn" data-repo="' + escapeHtml(project.repository) + '">Change / fix project</button>' +
-            deployment + '<a class="button" href="' + repoUrl + '" target="_blank" rel="noreferrer">Repository</a></div></div>' +
+            deployment + deployAction + '<a class="button" href="' + repoUrl + '" target="_blank" rel="noreferrer">Repository</a></div></div>' +
             '<div class="item-meta" style="margin-top:8px">Planner: ' + escapeHtml(project.agents?.planner || "default") +
             ' · Developer: ' + escapeHtml(project.agents?.developer || "default") +
             ' · Reviewer: ' + escapeHtml(project.agents?.reviewer || "default") +
@@ -453,6 +463,19 @@
           list.appendChild(item);
         });
         document.querySelectorAll(".project-tasks").forEach((container) => loadProjectTasks(container));
+        document.querySelectorAll(".deploy-project-btn").forEach((button) => {
+          button.addEventListener("click", async () => {
+            if (!window.confirm("Deploy the current approved main branch to production using " + button.dataset.provider + "? This is a separate production action.")) return;
+            button.disabled = true; button.textContent = "Starting deployment…";
+            try {
+              const response = await fetch("/api/deployments", { method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ repository: button.dataset.repo }) });
+              const data = await response.json();
+              if (!response.ok) throw new Error([data.error, data.detail].filter(Boolean).join(" "));
+              button.textContent = "Deployment started";
+            } catch (error) { button.disabled = false; button.textContent = "Deploy production"; alert(error.message); }
+          });
+        });
         document.querySelectorAll(".save-agent-settings").forEach((button) => {
           button.addEventListener("click", async () => {
             const planner = document.querySelector('.planner-setting[data-repo="' + CSS.escape(button.dataset.repo) + '"]');
@@ -900,6 +923,7 @@
       const name = document.getElementById("project-name").value.trim();
       const description = document.getElementById("project-description").value.trim();
       const projectType = document.getElementById("project-type").value;
+      const deployment = document.getElementById("project-deployment").value;
       const developerCalls = Number(document.getElementById("developer-calls").value);
       const reviewerCalls = Number(document.getElementById("reviewer-calls").value);
       const button = document.getElementById("create-project-btn");
@@ -921,6 +945,7 @@
             name,
             description,
             project_type: projectType,
+            deployment,
             developer_calls: developerCalls,
             reviewer_calls: reviewerCalls
           })

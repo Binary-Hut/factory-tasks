@@ -43,6 +43,19 @@ test('project request rejects excessive AI-call budgets', () => {
   assert.match(result.errors.join(' '), /Developer AI-call budget/);
 });
 
+test('project request preserves an explicitly selected deployment provider', () => {
+  const result = validateProjectRequest({
+    name: 'Deployable Project',
+    description: 'A project that will be deployed only after owner approval.',
+    project_type: 'web-app',
+    deployment: 'vercel',
+    developer_calls: 1,
+    reviewer_calls: 1
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.project.deployment, 'vercel');
+});
+
 test('slugify removes unsafe repository-name characters', () => {
   assert.equal(slugify('  My Project!!! 2026  '), 'my-project-2026');
 });
@@ -170,6 +183,7 @@ test('project template provisions the core factory workflow set', () => {
   assert.match(copied, /gemini-review\.yml/);
   assert.match(copied, /branch-collision-guard\.yml/);
   assert.match(copied, /workflows\/test\.yml/);
+  assert.match(copied, /vercel-production\.yml/);
   assert.deepEqual(template.security.oauth_scopes_required, ['public_repo', 'workflow']);
 });
 
@@ -340,4 +354,20 @@ test('project task discovery exposes a GitHub-backed task registry view', () => 
   assert.match(tasks, /ai_calls_total/);
   assert.match(tasks, /registry: taskRegistry/);
   assert.match(registry, /ai_budget: project\.ai_budget/);
+});
+
+test('production deployment is an authenticated explicit provider dispatch', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const endpoint = fs.readFileSync(path.resolve(__dirname, '../api/deployments.js'), 'utf8');
+  const workflow = fs.readFileSync(path.resolve(__dirname, '../.factory/workflows/vercel-production.yml'), 'utf8');
+  assert.match(endpoint, /sameOrigin\(req\)/);
+  assert.match(endpoint, /deploymentCatalog\.providers/);
+  assert.match(endpoint, /actions\/workflows\/\$\{provider\.workflow\}\/dispatches/);
+  assert.match(endpoint, /repo\.default_branch/);
+  assert.match(workflow, /workflow_dispatch:/);
+  assert.match(workflow, /VERCEL_TOKEN/);
+  assert.match(workflow, /vercel deploy --prod/);
+  assert.match(workflow, /verify-production\.sh/);
+  assert.doesNotMatch(workflow, /push:\s*\n/);
 });

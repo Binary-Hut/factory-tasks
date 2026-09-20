@@ -159,3 +159,11 @@ test('Console shows task agent ownership, AI usage, and project budgets', async 
   expect(source).toContain('current_agent');
   expect(source).toContain('AI budget: Developer');
 });
+
+test('Console keeps production deployment behind a separate confirmation action', async ({ page }) => {
+  const source = require('node:fs').readFileSync(require('node:path').resolve(__dirname, '../console/index.html'), 'utf8');
+  expect(source).toContain('id="project-deployment"');
+  expect(source).toContain('Deploy production');
+  expect(source).toContain('/api/deployments');
+  expect(source).toContain('separate production action');
+});
