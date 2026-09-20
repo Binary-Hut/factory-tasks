@@ -188,3 +188,19 @@ test('project provisioner targets the Binary Hut organization endpoint', () => {
   assert.doesNotMatch(source, /api\.github\.com\/user\/repos/);
   assert.match(source, /Binary-Hut\/factory-tasks/);
 });
+
+
+test('Developer workflow accepts explicitly approved correction state', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const source = fs.readFileSync(path.resolve(__dirname, '../.factory/workflows/codex-feature-developer.yml'), 'utf8');
+  assert.match(source, /READY_FOR_CORRECTION/);
+});
+
+test('paid AI dispatch locks are scoped to the current plan generation', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const source = fs.readFileSync(path.resolve(__dirname, '../api/task-actions.js'), 'utf8');
+  assert.match(source, /const generation = String\(plan\.sha/);
+  assert.doesNotMatch(source, /acquireDispatchLock\(repository, branch, planPath, 'correction'.*\n.*const updated/s);
+});
