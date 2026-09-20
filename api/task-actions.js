@@ -1,5 +1,6 @@
 const { getConfig, isConfigured, readSession } = require('../lib/factory-auth');
-const registry = require('../.factory/projects.json');
+const bundledRegistry = require('../.factory/projects.json');
+const agentCatalog = require('../.factory/agents.json');
 
 async function github(url, token, options = {}) {
   const response = await fetch(url, {
@@ -9,6 +10,15 @@ async function github(url, token, options = {}) {
   const data = await response.json().catch(() => ({}));
   if (!response.ok) { const error = new Error(data.message || `GitHub returned ${response.status}`); error.status = response.status; throw error; }
   return data;
+}
+
+async function loadRegistry(token) {
+  try {
+    const file = await github('https://api.github.com/repos/Binary-Hut/factory-tasks/contents/.factory/projects.json?ref=main', token);
+    return JSON.parse(Buffer.from(String(file.content || '').replace(/\n/g, ''), 'base64').toString('utf8'));
+  } catch (_) {
+    return bundledRegistry;
+  }
 }
 
 async function requireSuccessfulActions(repository, headSha, token) {
@@ -91,6 +101,7 @@ module.exports = async function handler(req, res) {
 
   let body = req.body || {};
   if (typeof body === 'string') { try { body = JSON.parse(body); } catch { return res.status(400).json({ error: 'Invalid JSON request.' }); } }
+  const registry = await loadRegistry(session.token);
   const repository = String(body.repository || '').trim();
   const branch = String(body.branch || '').trim();
   const planPath = String(body.plan_path || '').trim();
@@ -106,11 +117,12 @@ module.exports = async function handler(req, res) {
   try {
     if (action === 'start-planning') {
       const project = (registry.projects || []).find((item) => item.repository === repository);
-      if (project?.agents?.planner !== 'gemini') return res.status(409).json({ error: 'This project is not configured for the Gemini Planner.' });
+      const planner = (agentCatalog.roles?.planner?.options || []).find((option) => option.id === project?.agents?.planner);
+      if (!planner || planner.kind !== 'ai' || !planner.workflow) return res.status(409).json({ error: 'This project is not configured for an automated Planner.' });
       const file = await github(`https://api.github.com/repos/${repository}/contents/${planPath}?ref=${encodeURIComponent(branch)}`, session.token);
       const text = Buffer.from(file.content, 'base64').toString('utf8');
       if (!text.includes('Status: NEEDS_PLANNING')) return res.status(409).json({ error: 'This task does not need planning.' });
-      await dispatchWithLock(repository, branch, planPath, 'planning', 'gemini-planner.yml', { branch, plan_path: planPath }, session.token);
+      await dispatchWithLock(repository, branch, planPath, 'planning', planner.workflow, { branch, plan_path: planPath, model: planner.model || '' }, session.token);
       return res.status(202).json({ ok: true, status: 'PLANNING_DISPATCHED', next: 'One explicitly approved Planner AI call was requested. Development remains blocked until you approve the resulting plan.' });
     }
 

@@ -377,6 +377,14 @@
     const REPO = "Binary-Hut/factory-tasks";
     const API = "https://api.github.com/repos/" + REPO;
     let factoryProjects = [];
+    let agentCatalog = { roles: {} };
+
+    function agentOptions(role, selected) {
+      return (agentCatalog.roles?.[role]?.options || []).map((option) =>
+        '<option value="' + escapeHtml(option.id) + '"' + (option.id === selected ? ' selected' : '') + '>' +
+        escapeHtml(option.label + (option.model ? ' · ' + option.model : '')) + '</option>'
+      ).join('');
+    }
 
     const friendlyWorkflowNames = {
       "Run Tests": "Automated tests",
@@ -410,6 +418,7 @@
         const response = await fetch("/api/project-registry");
         const data = await response.json();
         factoryProjects = Array.isArray(data.projects) ? data.projects : [];
+        agentCatalog = data.agent_catalog || { roles: {} };
         if (!factoryProjects.length) {
           list.innerHTML = '<div class="empty">No registered projects yet.</div>';
           return;
@@ -431,10 +440,29 @@
             '<div class="item-meta" style="margin-top:8px">Planner: ' + escapeHtml(project.agents?.planner || "default") +
             ' · Developer: ' + escapeHtml(project.agents?.developer || "default") +
             ' · Reviewer: ' + escapeHtml(project.agents?.reviewer || "default") + '</div>' +
+            '<div class="toolbar" style="margin-top:8px"><label class="item-meta">Planner <select class="planner-setting" data-repo="' + escapeHtml(project.repository) + '">' +
+            agentOptions("planner", project.agents?.planner) + '</select></label>' +
+            '<button class="button save-agent-settings" type="button" data-repo="' + escapeHtml(project.repository) + '">Save agent settings</button></div>' +
             '<div class="work-list project-tasks" data-repo="' + escapeHtml(project.repository) + '" style="margin-top:10px"><div class="empty">Loading tasks…</div></div>';
           list.appendChild(item);
         });
         document.querySelectorAll(".project-tasks").forEach((container) => loadProjectTasks(container));
+        document.querySelectorAll(".save-agent-settings").forEach((button) => {
+          button.addEventListener("click", async () => {
+            const select = document.querySelector('.planner-setting[data-repo="' + CSS.escape(button.dataset.repo) + '"]');
+            button.disabled = true; button.textContent = "Saving…";
+            try {
+              const response = await fetch("/api/project-settings", { method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ repository: button.dataset.repo, planner: select.value }) });
+              const data = await response.json();
+              if (!response.ok) throw new Error(data.error || "Could not save agent settings.");
+              const project = factoryProjects.find((item) => item.repository === button.dataset.repo);
+              if (project) project.agents = data.agents;
+              button.textContent = "Saved";
+              setTimeout(() => { button.disabled = false; button.textContent = "Save agent settings"; }, 1200);
+            } catch (error) { button.disabled = false; button.textContent = "Save agent settings"; alert(error.message); }
+          });
+        });
         document.querySelectorAll(".project-task-btn").forEach((button) => {
           button.addEventListener("click", () => {
             const textarea = document.getElementById("task-text");
@@ -455,6 +483,7 @@
     async function loadProjectTasks(container) {
       const repository = container.dataset.repo;
       const project = factoryProjects.find((item) => item.repository === repository);
+      const plannerOption = (agentCatalog.roles?.planner?.options || []).find((option) => option.id === project?.agents?.planner);
       try {
         const response = await fetch("/api/project-tasks?repository=" + encodeURIComponent(repository));
         const data = await response.json();
@@ -465,8 +494,8 @@
         }
         container.innerHTML = data.tasks.slice(0, 5).map((task) => {
           const labels = task.workspace?.status ? task.workspace.status.replaceAll("_", " ") : (task.labels.length ? task.labels.join(", ") : "Awaiting preparation");
-          const plan = task.workspace?.status === "NEEDS_PLANNING" && project?.agents?.planner === "gemini"
-            ? '<button class="start-plan-btn" type="button" data-repo="' + escapeHtml(repository) + '" data-branch="' + escapeHtml(task.workspace.branch) + '" data-plan="' + escapeHtml(task.workspace.plan_path) + '">Start planning (Gemini, 1 AI call)</button>' : '';
+          const plan = task.workspace?.status === "NEEDS_PLANNING" && plannerOption?.kind === "ai"
+            ? '<button class="start-plan-btn" type="button" data-repo="' + escapeHtml(repository) + '" data-branch="' + escapeHtml(task.workspace.branch) + '" data-plan="' + escapeHtml(task.workspace.plan_path) + '">Start planning (' + escapeHtml(plannerOption.label) + ', 1 AI call)</button>' : '';
           const approve = task.workspace?.status === "READY_FOR_APPROVAL"
             ? '<button class="approve-task-btn" type="button" data-repo="' + escapeHtml(repository) + '" data-branch="' + escapeHtml(task.workspace.branch) + '" data-plan="' + escapeHtml(task.workspace.plan_path) + '">Approve development</button>'
             : '';
@@ -602,7 +631,7 @@
         });
         container.querySelectorAll(".start-plan-btn").forEach((button) => {
           button.addEventListener("click", async () => {
-            if (!window.confirm("Start the Gemini Planner? This uses one AI call. It will prepare a plan only; development will still require your separate approval.")) return;
+            if (!window.confirm("Start the configured Planner? This uses one AI call. It will prepare a plan only; development will still require your separate approval.")) return;
             button.disabled = true; button.textContent = "Starting planning…";
             try {
               const response = await fetch("/api/task-actions", { method: "POST", headers: { "Content-Type": "application/json" },
@@ -610,7 +639,7 @@
               const data = await response.json();
               if (!response.ok) throw new Error(data.error || "Could not start planning.");
               button.textContent = "Planning started";
-            } catch (error) { button.disabled = false; button.textContent = "Start planning (Gemini, 1 AI call)"; alert(error.message); }
+            } catch (error) { button.disabled = false; button.textContent = "Start planning (" + (plannerOption?.label || "AI") + ", 1 AI call)"; alert(error.message); }
           });
         });
         container.querySelectorAll(".approve-task-btn").forEach((button) => {
