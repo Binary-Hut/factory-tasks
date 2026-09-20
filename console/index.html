@@ -476,13 +476,28 @@
           const merge = task.workspace?.pull_request?.review === "READY"
             ? '<button class="merge-task-btn" type="button" data-repo="' + escapeHtml(repository) + '" data-branch="' + escapeHtml(task.workspace.branch) + '" data-plan="' + escapeHtml(task.workspace.plan_path) + '" data-pr="' + task.workspace.pull_request.number + '">Merge approved change</button>'
             : '';
+          const retry = task.workspace?.status === "PAUSED_AI_FAILURE"
+            ? '<button class="retry-dev-btn" type="button" data-repo="' + escapeHtml(repository) + '" data-branch="' + escapeHtml(task.workspace.branch) + '" data-plan="' + escapeHtml(task.workspace.plan_path) + '">Retry Developer (1 AI call)</button>' : '';
           const recoveryState = task.workspace?.recovery
             ? '<div class="item-meta">' + escapeHtml(task.workspace.recovery.message) + '</div>' : '';
           const reviewState = task.workspace?.pull_request?.review && task.workspace.pull_request.review !== "NOT_REVIEWED"
             ? '<div class="item-meta">Review: ' + escapeHtml(task.workspace.pull_request.review.replaceAll("_", " ")) + '</div>' : '';
           return '<div class="item"><div class="run-row"><div><a class="item-title" href="' + task.url + '" target="_blank" rel="noreferrer">#' + task.number + ' ' + escapeHtml(task.title) + '</a>' +
-            '<div class="item-meta">' + escapeHtml(labels) + '</div></div><span class="badge">Open</span></div>' + reviewState + approve + develop + review + merge + '</div>';
+            '<div class="item-meta">' + escapeHtml(labels) + '</div></div><span class="badge">Open</span></div>' + reviewState + approve + develop + retry + review + merge + '</div>';
         }).join("");
+        container.querySelectorAll(".retry-dev-btn").forEach((button) => {
+          button.addEventListener("click", async () => {
+            if (!window.confirm("Retry the Developer? This intentionally uses one additional AI call. No further retry will happen automatically.")) return;
+            button.disabled = true; button.textContent = "Starting retry…";
+            try {
+              const response = await fetch("/api/task-actions", { method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "retry-development", repository: button.dataset.repo, branch: button.dataset.branch, plan_path: button.dataset.plan }) });
+              const data = await response.json();
+              if (!response.ok) throw new Error(data.error || "Could not retry Developer.");
+              button.textContent = "Retry started";
+            } catch (error) { button.disabled = false; button.textContent = "Retry Developer (1 AI call)"; alert(error.message); }
+          });
+        });
         container.querySelectorAll(".merge-task-btn").forEach((button) => {
           button.addEventListener("click", async () => {
             if (!window.confirm("Merge this independently reviewed change? Deployment remains a separate stage.")) return;

@@ -35,7 +35,7 @@ module.exports = async function handler(req, res) {
   const action = String(body.action || '').trim();
   if (!(registry.projects || []).some((p) => p.repository === repository)) return res.status(400).json({ error: 'Choose a registered factory project.' });
   if (!/^task\/[a-zA-Z0-9._/-]+$/.test(branch) || !/^\.ai\/tasks\/[a-zA-Z0-9._/-]+\.md$/.test(planPath)) return res.status(400).json({ error: 'Invalid task workspace.' });
-  if (!['approve-development', 'start-development', 'start-review', 'merge'].includes(action)) return res.status(400).json({ error: 'Unsupported lifecycle action.' });
+  if (!['approve-development', 'start-development', 'retry-development', 'start-review', 'merge'].includes(action)) return res.status(400).json({ error: 'Unsupported lifecycle action.' });
 
   try {
     if (action === 'merge') {
@@ -70,6 +70,22 @@ module.exports = async function handler(req, res) {
       return res.status(202).json({ ok: true, status: 'REVIEW_DISPATCHED', next: 'One independent Reviewer AI run was requested. Automatic retry remains disabled.' });
     }
 
+    if (action === 'retry-development') {
+      const file = await github(`https://api.github.com/repos/${repository}/contents/${planPath}?ref=${encodeURIComponent(branch)}`, session.token);
+      const text = Buffer.from(file.content, 'base64').toString('utf8');
+      if (!text.includes('Status: PAUSED_AI_FAILURE')) return res.status(409).json({ error: 'This task is not paused after an AI failure.' });
+      const updated = text.replace('Status: PAUSED_AI_FAILURE', 'Status: READY_FOR_RETRY');
+      await github(`https://api.github.com/repos/${repository}/contents/${planPath}`, session.token, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: 'Authorize one explicit Developer retry', content: Buffer.from(updated).toString('base64'), sha: file.sha, branch })
+      });
+      await github(`https://api.github.com/repos/${repository}/actions/workflows/codex-feature-developer.yml/dispatches`, session.token, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ref: branch, inputs: { branch, plan_path: planPath } })
+      });
+      return res.status(202).json({ ok: true, status: 'RETRY_DISPATCHED', next: 'One explicitly approved Developer retry was requested. No further retry will happen automatically.' });
+    }
+
     if (action === 'start-development') {
       const file = await github(`https://api.github.com/repos/${repository}/contents/${planPath}?ref=${encodeURIComponent(branch)}`, session.token);
       const text = Buffer.from(file.content, 'base64').toString('utf8');
@@ -91,6 +107,6 @@ module.exports = async function handler(req, res) {
     });
     return res.status(200).json({ ok: true, status: 'READY_FOR_DEVELOPMENT', next: 'Plan approved. Development has not started yet.' });
   } catch (error) {
-    return res.status(502).json({ error: 'Could not approve this task.', detail: error.message });
+    return res.status(502).json({ error: 'Could not complete this lifecycle action.', detail: error.message });
   }
 };
