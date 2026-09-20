@@ -1,5 +1,5 @@
 const { getConfig, isConfigured, readSession } = require('../lib/factory-auth');
-const registry = require('../.factory/projects.json');
+const bundledRegistry = require('../.factory/projects.json');
 const agentCatalog = require('../.factory/agents.json');
 
 async function github(url, token, options = {}) {
@@ -10,6 +10,15 @@ async function github(url, token, options = {}) {
   const data = await response.json().catch(() => ({}));
   if (!response.ok) { const error = new Error(data.message || `GitHub returned ${response.status}`); error.status = response.status; throw error; }
   return data;
+}
+
+async function loadRegistry(token) {
+  try {
+    const file = await github('https://api.github.com/repos/Binary-Hut/factory-tasks/contents/.factory/projects.json?ref=main', token);
+    return JSON.parse(Buffer.from(String(file.content || '').replace(/\n/g, ''), 'base64').toString('utf8'));
+  } catch (_) {
+    return bundledRegistry;
+  }
 }
 
 async function requireSuccessfulActions(repository, headSha, token) {
@@ -92,6 +101,7 @@ module.exports = async function handler(req, res) {
 
   let body = req.body || {};
   if (typeof body === 'string') { try { body = JSON.parse(body); } catch { return res.status(400).json({ error: 'Invalid JSON request.' }); } }
+  const registry = await loadRegistry(session.token);
   const repository = String(body.repository || '').trim();
   const branch = String(body.branch || '').trim();
   const planPath = String(body.plan_path || '').trim();
