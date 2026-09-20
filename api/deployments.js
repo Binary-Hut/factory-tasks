@@ -92,7 +92,7 @@ module.exports = async function handler(req, res) {
     });
     return res.status(202).json({
       ok: true,
-      status: 'DEPLOYMENT_DISPATCHED',
+      status: 'DEPLOYMENT_REQUESTED',
       provider: project.deployment.provider,
       next: 'Production deployment was recorded in GitHub and explicitly requested. The deterministic workflow will verify the live response and will not retry automatically.'
     });

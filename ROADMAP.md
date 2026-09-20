@@ -86,9 +86,12 @@ is confirmed working.
   pull requests, review evidence, and AI-dispatch locks. It shows agent
   ownership, recorded AI calls, project budgets, and only valid next actions.
 
-- [ ] **Phase 11 — First productive Musical Hut project**
+- [x] **Phase 11 — First productive Musical Hut project**
   Reuse this factory structure for a small real business tool, such as a
   Student Practice Tracker, while preserving the same cost and safety controls.
+
+  Practice Timer now uses the shared Factory v2 lifecycle controls, passes its
+  deterministic checks, and is deployed as the first live project.
 
 - [x] **Phase 10.5 — Explicit production deployment**
   Registered projects may select an approved provider. Production deployment is
@@ -98,4 +101,8 @@ is confirmed working.
 
 ## Independent verification
 
-Before Factory v2 is declared complete, run an explicitly approved independent Tester pass using `.ai/roles/TESTER.md`. Keep deterministic CI on every PR; use the paid/AI Tester at major milestones and final release rather than on every small infrastructure change.
+The explicitly approved independent Tester pass was completed after the first
+live project. Its deployment-integrity findings are covered by exact-SHA
+approval binding and verification against the URL returned by each deployment.
+Keep deterministic CI on every PR; use the paid/AI Tester at major milestones
+and final releases rather than on every small infrastructure change.

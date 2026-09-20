@@ -17,7 +17,7 @@ function mockGitHub(page, { failed = false } = {}) {
           html_url: 'https://github.com/example/tests'
         },
         {
-          name: 'Verify Production Site',
+          name: 'Deploy Production',
           head_branch: 'main',
           status: 'completed',
           conclusion: 'success',
@@ -88,7 +88,7 @@ test('console shows open work and friendly automation names', async ({ page }) =
   await expect(page.locator('#open-work')).toContainText('Factory Console MVP');
   await expect(page.locator('#open-work')).toContainText('Example pull request');
   await expect(page.locator('#recent-runs')).toContainText('Automated tests');
-  await expect(page.locator('#recent-runs')).toContainText('Live-site check');
+  await expect(page.locator('#recent-runs')).toContainText('Production deployment');
   await expect(page.locator('#recent-runs')).toContainText('Passed');
 });
 

@@ -1,6 +1,6 @@
 const { test, expect } = require('@playwright/test');
 
-const LIVE_URL = 'https://factory-tasks-eta.vercel.app';
+const LIVE_URL = process.env.LIVE_URL || 'https://factory-tasks-eta.vercel.app';
 
 test.beforeEach(async ({ page }) => {
   await page.goto(LIVE_URL);
