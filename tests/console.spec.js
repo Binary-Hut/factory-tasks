@@ -126,7 +126,8 @@ test('console source keeps all gated task lifecycle controls wired into task car
   expect(source).toContain('Start development (1 AI call)');
   expect(source).toContain('Start review (1 AI call)');
   expect(source).toContain('Merge approved change');
-  expect(source).toContain('reviewState + approve + develop + retry + review + reviewRetry + merge');
+  expect(source).toContain('reviewState + approve + develop + retry + review + correction + reviewRetry + merge');
   expect(source).toContain('Retry Developer (1 AI call)');
   expect(source).toContain('Retry Reviewer (1 AI call)');
+  expect(source).toContain('Start correction (1 AI call)');
 });
