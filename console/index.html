@@ -292,6 +292,14 @@
 
     <section class="grid">
       <article class="panel wide">
+        <h2>Projects</h2>
+        <p class="muted">Choose a project to see its repository, configured AI roles, and start a feature or fix.</p>
+        <div class="work-list" id="project-list"><div class="empty">Loading projects…</div></div>
+      </article>
+    </section>
+
+    <section class="grid">
+      <article class="panel wide">
         <h2>New project</h2>
         <p class="muted" id="project-auth-note">Checking secure project creation…</p>
 
@@ -366,6 +374,7 @@
   <script>
     const REPO = "Binary-Hut/factory-tasks";
     const API = "https://api.github.com/repos/" + REPO;
+    let factoryProjects = [];
 
     const friendlyWorkflowNames = {
       "Run Tests": "Automated tests",
@@ -391,6 +400,55 @@
         return { text: "Skipped", className: "" };
       }
       return { text: "Needs attention", className: "bad" };
+    }
+
+    async function loadProjects() {
+      const list = document.getElementById("project-list");
+      try {
+        const response = await fetch("/api/project-registry");
+        const data = await response.json();
+        factoryProjects = Array.isArray(data.projects) ? data.projects : [];
+        if (!factoryProjects.length) {
+          list.innerHTML = '<div class="empty">No registered projects yet.</div>';
+          return;
+        }
+        list.innerHTML = "";
+        factoryProjects.forEach((project) => {
+          const item = document.createElement("div");
+          item.className = "item";
+          const repoUrl = "https://github.com/" + project.repository;
+          const deployment = project.deployment && project.deployment.live_url
+            ? '<a class="button" href="' + project.deployment.live_url + '" target="_blank" rel="noreferrer">Open live app</a>'
+            : "";
+          item.innerHTML =
+            '<div class="run-row"><div><div class="item-title">' + escapeHtml(project.name) + '</div>' +
+            '<div class="item-meta">' + escapeHtml(project.project_type || "project") + ' · ' +
+            escapeHtml(project.lifecycle_status || "active") + '</div></div>' +
+            '<div class="toolbar"><button class="button project-task-btn" data-repo="' + escapeHtml(project.repository) + '">New feature / fix</button>' +
+            deployment + '<a class="button" href="' + repoUrl + '" target="_blank" rel="noreferrer">Repository</a></div></div>' +
+            '<div class="item-meta" style="margin-top:8px">Planner: ' + escapeHtml(project.agents?.planner || "default") +
+            ' · Developer: ' + escapeHtml(project.agents?.developer || "default") +
+            ' · Reviewer: ' + escapeHtml(project.agents?.reviewer || "default") + '</div>';
+          list.appendChild(item);
+        });
+        document.querySelectorAll(".project-task-btn").forEach((button) => {
+          button.addEventListener("click", () => {
+            const textarea = document.getElementById("task-text");
+            textarea.dataset.repository = button.dataset.repo;
+            textarea.placeholder = "Describe the change you want for " + button.dataset.repo + ".";
+            textarea.scrollIntoView({ behavior: "smooth", block: "center" });
+            textarea.focus();
+          });
+        });
+      } catch {
+        list.innerHTML = '<div class="empty">Project registry could not be loaded.</div>';
+      }
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "").replace(/[&<>"']/g, (char) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
+      })[char]);
     }
 
     async function loadAuth() {
@@ -683,6 +741,7 @@
     });
 
     loadConsole();
+    loadProjects();
     loadAuth();
   </script>
 </body>
