@@ -249,7 +249,7 @@ test('project template provisions an explicitly dispatched Planner workflow', ()
   const workflow = fs.readFileSync(path.resolve(__dirname, '../.factory/workflows/gemini-planner.yml'), 'utf8');
   assert.ok(template.starter_files.copy_from_factory.includes('.factory/workflows/gemini-planner.yml -> .github/workflows/gemini-planner.yml'));
   assert.match(source, /action === 'start-planning'/);
-  assert.match(source, /agentCatalog\.roles\?\.planner/);
+  assert.match(source, /configuredAgent\(project, 'planner'\)/);
   assert.match(source, /planner\.workflow/);
   assert.match(source, /model: planner\.model/);
   assert.match(source, /async function loadRegistry/);
