@@ -35,9 +35,24 @@ module.exports = async function handler(req, res) {
   const action = String(body.action || '').trim();
   if (!(registry.projects || []).some((p) => p.repository === repository)) return res.status(400).json({ error: 'Choose a registered factory project.' });
   if (!/^task\/[a-zA-Z0-9._/-]+$/.test(branch) || !/^\.ai\/tasks\/[a-zA-Z0-9._/-]+\.md$/.test(planPath)) return res.status(400).json({ error: 'Invalid task workspace.' });
-  if (!['approve-development', 'start-development'].includes(action)) return res.status(400).json({ error: 'Unsupported lifecycle action.' });
+  if (!['approve-development', 'start-development', 'start-review'].includes(action)) return res.status(400).json({ error: 'Unsupported lifecycle action.' });
 
   try {
+    if (action === 'start-review') {
+      const prNumber = Number(body.pr_number);
+      if (!Number.isInteger(prNumber) || prNumber < 1) return res.status(400).json({ error: 'A valid pull request is required for review.' });
+      const file = await github(`https://api.github.com/repos/${repository}/contents/${planPath}?ref=${encodeURIComponent(branch)}`, session.token);
+      const text = Buffer.from(file.content, 'base64').toString('utf8');
+      if (!text.includes('Status: READY_FOR_REVIEW')) return res.status(409).json({ error: 'Deterministic validation has not marked this task ready for review.' });
+      const pr = await github(`https://api.github.com/repos/${repository}/pulls/${prNumber}`, session.token);
+      if (pr.head.ref !== branch || pr.state !== 'open') return res.status(409).json({ error: 'The pull request does not match this active task branch.' });
+      await github(`https://api.github.com/repos/${repository}/actions/workflows/gemini-review.yml/dispatches`, session.token, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ref: branch, inputs: { pr_number: String(prNumber) } })
+      });
+      return res.status(202).json({ ok: true, status: 'REVIEW_DISPATCHED', next: 'One independent Reviewer AI run was requested. Automatic retry remains disabled.' });
+    }
+
     if (action === 'start-development') {
       const file = await github(`https://api.github.com/repos/${repository}/contents/${planPath}?ref=${encodeURIComponent(branch)}`, session.token);
       const text = Buffer.from(file.content, 'base64').toString('utf8');
