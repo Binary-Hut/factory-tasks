@@ -21,6 +21,27 @@
         "reviewer_calls_per_stage": 1,
         "automatic_retries": 0
       }
+    },
+    {
+      "id": "practice-timer",
+      "name": "Practice Timer",
+      "repository": "Binary-Hut/practice-timer",
+      "project_type": "static-web",
+      "lifecycle_status": "active",
+      "deployment": {
+        "provider": "vercel",
+        "live_url": null
+      },
+      "agents": {
+        "planner": "manual-claude",
+        "developer": "codex",
+        "reviewer": "gemini"
+      },
+      "ai_budget": {
+        "developer_calls_per_stage": 1,
+        "reviewer_calls_per_stage": 1,
+        "automatic_retries": 0
+      }
     }
   ]
 }
