@@ -34,7 +34,8 @@ module.exports = async function handler(req, res) {
       project_type: project.project_type,
       lifecycle_status: project.lifecycle_status,
       deployment: project.deployment || { provider: 'none' },
-      agents: project.agents || {}
+      agents: project.agents || {},
+      ai_budget: project.ai_budget || {}
     }))
   });
 };

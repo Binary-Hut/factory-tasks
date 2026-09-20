@@ -40,6 +40,29 @@ function registered(registry, repository) {
   return (registry.projects || []).some((item) => item.repository === repository);
 }
 
+function taskRegistry(tree, branch, status, project, pullRequest) {
+  const branchKey = branch.replace(/[^a-zA-Z0-9._-]+/g, '-');
+  const locks = (tree || [])
+    .map((entry) => entry.path)
+    .filter((path) => path.startsWith(`.ai/locks/${branchKey}-`) && path.endsWith('.json'));
+  const count = (stages) => locks.filter((path) => stages.some((stage) => path.includes(`-${stage}-`))).length;
+  const calls = {
+    planner: count(['planning']),
+    developer: count(['development', 'development-retry', 'correction']),
+    reviewer: count(['review', 'review-retry'])
+  };
+  const role = status === 'NEEDS_PLANNING' || status === 'PLANNING' ? 'planner'
+    : ['READY_FOR_DEVELOPMENT', 'READY_FOR_RETRY', 'DEVELOPING', 'READY_FOR_CORRECTION'].includes(status) ? 'developer'
+    : ['READY_FOR_REVIEW', 'REVIEWING', 'CHANGES_REQUIRED', 'READY_TO_MERGE'].includes(status) ? 'reviewer'
+    : null;
+  return {
+    current_agent: role ? { role, id: project?.agents?.[role] || 'default' } : null,
+    ai_calls: calls,
+    ai_calls_total: calls.planner + calls.developer + calls.reviewer,
+    result: pullRequest?.review || status
+  };
+}
+
 module.exports = async function handler(req, res) {
   if (req.method !== 'GET') {
     res.setHeader('Allow', 'GET');
@@ -51,6 +74,7 @@ module.exports = async function handler(req, res) {
   const repository = String(req.query?.repository || '').trim();
   const registry = await loadRegistry(session.token);
   if (!registered(registry, repository)) return res.status(400).json({ error: 'Choose a registered factory project.' });
+  const project = (registry.projects || []).find((item) => item.repository === repository);
 
   try {
     const issues = await github(`https://api.github.com/repos/${repository}/issues?state=open&per_page=30&sort=updated&direction=desc`, session.token);
@@ -88,7 +112,14 @@ module.exports = async function handler(req, res) {
             const recovery = status === 'PAUSED_AI_FAILURE' ? { kind: 'AI_FAILURE', needs_owner_retry: true, message: 'AI stage paused. No automatic paid retry was made.' }
               : status.includes('PAUSED') || status.includes('FAILED') ? { kind: 'PAUSED', needs_owner_retry: false, message: 'Task paused for deterministic diagnosis before any paid retry.' }
               : null;
-            workspace = { branch: branch.name, plan_path: plan.path, status, pull_request, recovery };
+            workspace = {
+              branch: branch.name,
+              plan_path: plan.path,
+              status,
+              pull_request,
+              recovery,
+              registry: taskRegistry(tree.tree, branch.name, status, project, pull_request)
+            };
           }
         }
       } catch { workspace = null; }

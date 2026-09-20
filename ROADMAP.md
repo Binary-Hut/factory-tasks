@@ -71,16 +71,20 @@ is confirmed working.
   task at a time, and the branch collision guard prevents overlapping file edits.
   AI call budgets and explicit reviewer arming limit accidental spend.
 
-- [ ] **Phase 9.5 — Task registry**
+- [x] **Phase 9.5 — Task registry**
   Keep a simple GitHub-backed record of task state, branch, agent ownership,
   AI calls used, and result. This becomes the data model for the owner UI.
 
-- [ ] **Phase 10 — Factory Console MVP**
+- [x] **Phase 10 — Factory Console MVP**
   Build our own non-technical control surface over the GitHub factory.
   Start with Dashboard, New Task, Task Details, and state-aware approval actions.
   GitHub remains the source of truth; the console must not duplicate orchestration
   state. Vibe Kanban/OpenHands may be optional execution tools later, not the
   foundation of the owner interface.
+
+  The Console now discovers task state directly from GitHub branches, plans,
+  pull requests, review evidence, and AI-dispatch locks. It shows agent
+  ownership, recorded AI calls, project budgets, and only valid next actions.
 
 - [ ] **Phase 11 — First productive Musical Hut project**
   Reuse this factory structure for a small real business tool, such as a

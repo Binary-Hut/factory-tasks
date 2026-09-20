@@ -439,7 +439,9 @@
             deployment + '<a class="button" href="' + repoUrl + '" target="_blank" rel="noreferrer">Repository</a></div></div>' +
             '<div class="item-meta" style="margin-top:8px">Planner: ' + escapeHtml(project.agents?.planner || "default") +
             ' · Developer: ' + escapeHtml(project.agents?.developer || "default") +
-            ' · Reviewer: ' + escapeHtml(project.agents?.reviewer || "default") + '</div>' +
+            ' · Reviewer: ' + escapeHtml(project.agents?.reviewer || "default") +
+            ' · AI budget: Developer ' + escapeHtml(project.ai_budget?.developer_calls_per_stage ?? "default") +
+            ' / Reviewer ' + escapeHtml(project.ai_budget?.reviewer_calls_per_stage ?? "default") + '</div>' +
             '<div class="toolbar" style="margin-top:8px"><label class="item-meta">Planner <select class="planner-setting" data-repo="' + escapeHtml(project.repository) + '">' +
             agentOptions("planner", project.agents?.planner) + '</select></label>' +
             '<label class="item-meta">Developer <select class="developer-setting" data-repo="' + escapeHtml(project.repository) + '">' +
@@ -520,6 +522,13 @@
           const merge = task.workspace?.pull_request?.review === "READY"
             ? '<button class="merge-task-btn" type="button" data-repo="' + escapeHtml(repository) + '" data-branch="' + escapeHtml(task.workspace.branch) + '" data-plan="' + escapeHtml(task.workspace.plan_path) + '" data-pr="' + task.workspace.pull_request.number + '">Merge approved change</button>'
             : '';
+          const registry = task.workspace?.registry;
+          const agent = registry?.current_agent
+            ? registry.current_agent.role + ': ' + registry.current_agent.id
+            : 'No agent active';
+          const usage = registry?.ai_calls
+            ? 'AI calls recorded — Planner ' + registry.ai_calls.planner + ', Developer ' + registry.ai_calls.developer + ', Reviewer ' + registry.ai_calls.reviewer
+            : 'AI usage not available';
           const retry = task.workspace?.status === "PAUSED_AI_FAILURE"
             ? '<button class="retry-dev-btn" type="button" data-repo="' + escapeHtml(repository) + '" data-branch="' + escapeHtml(task.workspace.branch) + '" data-plan="' + escapeHtml(task.workspace.plan_path) + '">Retry Developer (1 AI call)</button>' : '';
           const recoveryState = task.workspace?.recovery
@@ -527,7 +536,7 @@
           const reviewState = task.workspace?.pull_request?.review && task.workspace.pull_request.review !== "NOT_REVIEWED"
             ? '<div class="item-meta">Review: ' + escapeHtml(task.workspace.pull_request.review.replaceAll("_", " ")) + '</div>' : '';
           return '<div class="item"><div class="run-row"><div><a class="item-title" href="' + task.url + '" target="_blank" rel="noreferrer">#' + task.number + ' ' + escapeHtml(task.title) + '</a>' +
-            '<div class="item-meta">' + escapeHtml(labels) + '</div></div><span class="badge">Open</span></div>' + reviewState + plan + approve + develop + retry + prepareReview + review + correction + reviewRetry + merge + '</div>';
+            '<div class="item-meta">' + escapeHtml(labels) + '</div><div class="item-meta">' + escapeHtml(agent) + ' · ' + escapeHtml(usage) + '</div></div><span class="badge">Open</span></div>' + reviewState + plan + approve + develop + retry + prepareReview + review + correction + reviewRetry + merge + '</div>';
         }).join("");
         container.querySelectorAll(".correction-btn").forEach((button) => {
           button.addEventListener("click", async () => {

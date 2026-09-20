@@ -328,3 +328,16 @@ test('Developer and Reviewer dispatch use the extensible agent catalog', () => {
   assert.match(reviewer, /gemini_model: \$\{\{ inputs\.model \}\}/);
   assert.doesNotMatch(reviewer, /pull_request:\s*\n/);
 });
+
+test('project task discovery exposes a GitHub-backed task registry view', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const tasks = fs.readFileSync(path.resolve(__dirname, '../api/project-tasks.js'), 'utf8');
+  const registry = fs.readFileSync(path.resolve(__dirname, '../api/project-registry.js'), 'utf8');
+  assert.match(tasks, /function taskRegistry/);
+  assert.match(tasks, /\.ai\/locks\//);
+  assert.match(tasks, /current_agent/);
+  assert.match(tasks, /ai_calls_total/);
+  assert.match(tasks, /registry: taskRegistry/);
+  assert.match(registry, /ai_budget: project\.ai_budget/);
+});
