@@ -1,8 +1,11 @@
 const { getConfig, isConfigured, readSession } = require('../lib/factory-auth');
 
 const SOURCE_REPO = 'Binary-Hut/factory-tasks';
+const agentCatalog = require('../.factory/agents.json');
 const REGISTRY_PATH = '.factory/projects.json';
-const ALLOWED_PLANNERS = new Set(['manual-claude', 'gemini']);
+function allowedAgent(role, id) {
+  return (agentCatalog.roles?.[role]?.options || []).some((option) => option.id === id);
+}
 
 async function github(url, token, options = {}) {
   const response = await fetch(url, {
@@ -34,7 +37,7 @@ module.exports = async function handler(req, res) {
   if (typeof body === 'string') { try { body = JSON.parse(body); } catch { return res.status(400).json({ error: 'Invalid JSON request.' }); } }
   const repository = String(body.repository || '').trim();
   const planner = String(body.planner || '').trim();
-  if (!ALLOWED_PLANNERS.has(planner)) return res.status(400).json({ error: 'Choose a supported Planner configuration.' });
+  if (!allowedAgent('planner', planner)) return res.status(400).json({ error: 'Choose a supported Planner configuration.' });
 
   try {
     const file = await github(`https://api.github.com/repos/${SOURCE_REPO}/contents/${REGISTRY_PATH}?ref=main`, session.token);
