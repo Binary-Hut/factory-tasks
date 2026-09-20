@@ -470,9 +470,32 @@
           const develop = task.workspace?.status === "READY_FOR_DEVELOPMENT"
             ? '<button class="start-dev-btn" type="button" data-repo="' + escapeHtml(repository) + '" data-branch="' + escapeHtml(task.workspace.branch) + '" data-plan="' + escapeHtml(task.workspace.plan_path) + '">Start development (1 AI call)</button>'
             : '';
+          const review = task.workspace?.status === "READY_FOR_REVIEW" && task.workspace?.pull_request
+            ? '<button class="start-review-btn" type="button" data-repo="' + escapeHtml(repository) + '" data-branch="' + escapeHtml(task.workspace.branch) + '" data-plan="' + escapeHtml(task.workspace.plan_path) + '" data-pr="' + task.workspace.pull_request.number + '">Start review (1 AI call)</button>'
+            : '';
           return '<div class="item"><div class="run-row"><div><a class="item-title" href="' + task.url + '" target="_blank" rel="noreferrer">#' + task.number + ' ' + escapeHtml(task.title) + '</a>' +
             '<div class="item-meta">' + escapeHtml(labels) + '</div></div><span class="badge">Open</span></div>' + approve + '</div>';
         }).join("");
+        container.querySelectorAll(".start-review-btn").forEach((button) => {
+          button.addEventListener("click", async () => {
+            if (!window.confirm("Start the independent Reviewer now? This intentionally uses one AI call. Automatic retry is disabled.")) return;
+            button.disabled = true;
+            button.textContent = "Starting review…";
+            try {
+              const response = await fetch("/api/task-actions", {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "start-review", repository: button.dataset.repo, branch: button.dataset.branch, plan_path: button.dataset.plan, pr_number: Number(button.dataset.pr) })
+              });
+              const data = await response.json();
+              if (!response.ok) throw new Error(data.error || "Could not start review.");
+              button.textContent = "Reviewer started";
+            } catch (error) {
+              button.disabled = false;
+              button.textContent = "Start review (1 AI call)";
+              alert(error.message);
+            }
+          });
+        });
         container.querySelectorAll(".start-dev-btn").forEach((button) => {
           button.addEventListener("click", async () => {
             if (!window.confirm("Start the Developer now? This intentionally uses one approved AI call. Automatic retry is disabled.")) return;
