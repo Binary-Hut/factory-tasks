@@ -442,6 +442,10 @@
             ' · Reviewer: ' + escapeHtml(project.agents?.reviewer || "default") + '</div>' +
             '<div class="toolbar" style="margin-top:8px"><label class="item-meta">Planner <select class="planner-setting" data-repo="' + escapeHtml(project.repository) + '">' +
             agentOptions("planner", project.agents?.planner) + '</select></label>' +
+            '<label class="item-meta">Developer <select class="developer-setting" data-repo="' + escapeHtml(project.repository) + '">' +
+            agentOptions("developer", project.agents?.developer) + '</select></label>' +
+            '<label class="item-meta">Reviewer <select class="reviewer-setting" data-repo="' + escapeHtml(project.repository) + '">' +
+            agentOptions("reviewer", project.agents?.reviewer) + '</select></label>' +
             '<button class="button save-agent-settings" type="button" data-repo="' + escapeHtml(project.repository) + '">Save agent settings</button></div>' +
             '<div class="work-list project-tasks" data-repo="' + escapeHtml(project.repository) + '" style="margin-top:10px"><div class="empty">Loading tasks…</div></div>';
           list.appendChild(item);
@@ -449,11 +453,13 @@
         document.querySelectorAll(".project-tasks").forEach((container) => loadProjectTasks(container));
         document.querySelectorAll(".save-agent-settings").forEach((button) => {
           button.addEventListener("click", async () => {
-            const select = document.querySelector('.planner-setting[data-repo="' + CSS.escape(button.dataset.repo) + '"]');
+            const planner = document.querySelector('.planner-setting[data-repo="' + CSS.escape(button.dataset.repo) + '"]');
+            const developer = document.querySelector('.developer-setting[data-repo="' + CSS.escape(button.dataset.repo) + '"]');
+            const reviewer = document.querySelector('.reviewer-setting[data-repo="' + CSS.escape(button.dataset.repo) + '"]');
             button.disabled = true; button.textContent = "Saving…";
             try {
               const response = await fetch("/api/project-settings", { method: "POST", headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ repository: button.dataset.repo, planner: select.value }) });
+                body: JSON.stringify({ repository: button.dataset.repo, planner: planner.value, developer: developer.value, reviewer: reviewer.value }) });
               const data = await response.json();
               if (!response.ok) throw new Error(data.error || "Could not save agent settings.");
               const project = factoryProjects.find((item) => item.repository === button.dataset.repo);
