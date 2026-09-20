@@ -1,9 +1,6 @@
 name: Verify Production Site
 
 on:
-  push:
-    branches: [ main ]
-
   workflow_dispatch:
 
 jobs:
@@ -26,13 +23,13 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Wait for production site to become ready
+        env:
+          DEPLOYMENT_URL: https://factory-tasks-eta.vercel.app
         run: |
-          URL="https://factory-tasks-eta.vercel.app"
-
           echo "Waiting for production deployment..."
 
           for attempt in {1..18}; do
-            STATUS=$(curl -L -s -o /dev/null -w "%{http_code}" "$URL")
+            STATUS=$(curl -L -s -o /dev/null -w "%{http_code}" "$DEPLOYMENT_URL")
 
             echo "Attempt $attempt: HTTP $STATUS"
 
@@ -48,4 +45,6 @@ jobs:
           exit 1
 
       - name: Test the live production site only
+        env:
+          LIVE_URL: https://factory-tasks-eta.vercel.app
         run: npx playwright test tests/production.spec.js

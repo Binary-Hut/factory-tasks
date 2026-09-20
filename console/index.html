@@ -395,6 +395,7 @@
 
     const friendlyWorkflowNames = {
       "Run Tests": "Automated tests",
+      "Deploy Production": "Production deployment",
       "Verify Production Site": "Live-site check",
       "Gemini PR Reviewer": "AI review",
       "Codex Feature Developer": "AI developer",
@@ -472,7 +473,7 @@
                 body: JSON.stringify({ repository: button.dataset.repo }) });
               const data = await response.json();
               if (!response.ok) throw new Error([data.error, data.detail].filter(Boolean).join(" "));
-              button.textContent = "Deployment started";
+              button.textContent = "Deployment requested";
             } catch (error) { button.disabled = false; button.textContent = "Deploy production"; alert(error.message); }
           });
         });
@@ -769,7 +770,7 @@
 
     function renderHealth(runs) {
       const source = latestRun(runs, "Run Tests");
-      const production = latestRun(runs, "Verify Production Site");
+      const production = latestRun(runs, "Deploy Production");
       const title = document.getElementById("health-title");
       const detail = document.getElementById("health-detail");
       const dot = document.getElementById("health-dot");
@@ -787,11 +788,11 @@
       } else if (hasRunning) {
         dot.classList.add("busy");
         title.textContent = "Work is in progress";
-        detail.textContent = "A source or live-site check is still running.";
+        detail.textContent = "Source tests or the production deployment are still running.";
       } else if (source && production) {
         dot.classList.add("good");
         title.textContent = "All systems healthy";
-        detail.textContent = "The latest source tests and live-site verification both passed.";
+        detail.textContent = "The latest source tests and verified production deployment both passed.";
       } else {
         title.textContent = "Status partly available";
         detail.textContent = "The console could not find both critical checks yet.";

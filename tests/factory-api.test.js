@@ -361,6 +361,8 @@ test('production deployment is an authenticated explicit provider dispatch', () 
   const path = require('node:path');
   const endpoint = fs.readFileSync(path.resolve(__dirname, '../api/deployments.js'), 'utf8');
   const workflow = fs.readFileSync(path.resolve(__dirname, '../.factory/workflows/vercel-production.yml'), 'utf8');
+  const verification = fs.readFileSync(path.resolve(__dirname, '../.github/workflows/verify-production.yml'), 'utf8');
+  const productionTests = fs.readFileSync(path.resolve(__dirname, '../tests/production.spec.js'), 'utf8');
   assert.match(endpoint, /sameOrigin\(req\)/);
   assert.match(endpoint, /deploymentCatalog\.providers/);
   assert.match(endpoint, /\.factory\/deploy-request\.json/);
@@ -369,7 +371,12 @@ test('production deployment is an authenticated explicit provider dispatch', () 
   assert.match(workflow, /workflow_dispatch:/);
   assert.match(workflow, /VERCEL_TOKEN/);
   assert.match(workflow, /vercel deploy --prod/);
+  assert.match(workflow, /SOURCE_SHA=.*deploy-request\.json/);
+  assert.match(workflow, /PARENT_SHA=.*git rev-parse HEAD\^/);
+  assert.match(workflow, /git checkout --detach "\$SOURCE_SHA"/);
   assert.match(workflow, /verify-production\.sh/);
   assert.match(workflow, /paths:\s*\n\s*- '\.factory\/deploy-request\.json'/);
   assert.doesNotMatch(workflow, /push:\s*\n\s*branches: \[ main \]\s*\n\s*jobs:/);
+  assert.doesNotMatch(verification, /push:\s*\n/);
+  assert.match(productionTests, /process\.env\.LIVE_URL/);
 });

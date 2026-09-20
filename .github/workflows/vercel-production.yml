@@ -23,8 +23,31 @@ jobs:
       VERCEL_SCOPE: ${{ vars.VERCEL_SCOPE || 'musichutonline-3481' }}
       VERCEL_PROJECT_NAME: ${{ github.event.repository.name }}
     steps:
-      - name: Check out approved main branch
+      - name: Check out deployment request
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Validate approved source commit
+        id: request
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE_SHA="$(node -e "const request=require('./.factory/deploy-request.json'); const sha=String(request.source_sha || ''); if (!/^[0-9a-f]{40}$/.test(sha)) process.exit(1); process.stdout.write(sha)")"
+          PARENT_SHA="$(git rev-parse HEAD^)"
+          if [ "$SOURCE_SHA" != "$PARENT_SHA" ]; then
+            echo "::error::The deployment request is not bound to its immediate approved source commit."
+            exit 1
+          fi
+          git cat-file -e "$SOURCE_SHA^{commit}"
+          echo "source_sha=$SOURCE_SHA" >> "$GITHUB_OUTPUT"
+          echo "Approved source commit: $SOURCE_SHA" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Check out exact approved source
+        shell: bash
+        env:
+          SOURCE_SHA: ${{ steps.request.outputs.source_sha }}
+        run: git checkout --detach "$SOURCE_SHA"
 
       - name: Verify deployment credentials
         shell: bash
