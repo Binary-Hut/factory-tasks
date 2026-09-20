@@ -464,10 +464,32 @@
         }
         container.innerHTML = data.tasks.slice(0, 5).map((task) => {
           const labels = task.workspace?.status ? task.workspace.status.replaceAll("_", " ") : (task.labels.length ? task.labels.join(", ") : "Awaiting preparation");
-          return '<a class="item" href="' + task.url + '" target="_blank" rel="noreferrer">' +
-            '<div class="run-row"><div><div class="item-title">#' + task.number + ' ' + escapeHtml(task.title) + '</div>' +
-            '<div class="item-meta">' + escapeHtml(labels) + '</div></div><span class="badge">Open</span></div></a>';
+          const approve = task.workspace?.status === "READY_FOR_APPROVAL"
+            ? '<button class="approve-task-btn" type="button" data-repo="' + escapeHtml(repository) + '" data-branch="' + escapeHtml(task.workspace.branch) + '" data-plan="' + escapeHtml(task.workspace.plan_path) + '">Approve development</button>'
+            : '';
+          return '<div class="item"><div class="run-row"><div><a class="item-title" href="' + task.url + '" target="_blank" rel="noreferrer">#' + task.number + ' ' + escapeHtml(task.title) + '</a>' +
+            '<div class="item-meta">' + escapeHtml(labels) + '</div></div><span class="badge">Open</span></div>' + approve + '</div>';
         }).join("");
+        container.querySelectorAll(".approve-task-btn").forEach((button) => {
+          button.addEventListener("click", async () => {
+            if (!window.confirm("Approve this plan for development? This approval does not start or spend an AI call.")) return;
+            button.disabled = true;
+            button.textContent = "Approving…";
+            try {
+              const response = await fetch("/api/task-actions", {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "approve-development", repository: button.dataset.repo, branch: button.dataset.branch, plan_path: button.dataset.plan })
+              });
+              const data = await response.json();
+              if (!response.ok) throw new Error(data.error || "Approval failed.");
+              await loadProjectTasks(container);
+            } catch (error) {
+              button.disabled = false;
+              button.textContent = "Approve development";
+              alert(error.message);
+            }
+          });
+        });
       } catch {
         container.innerHTML = '<div class="empty">Sign in to view this project\'s task lifecycle.</div>';
       }
