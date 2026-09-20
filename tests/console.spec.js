@@ -122,7 +122,7 @@ test('console points advanced controls at the Binary Hut factory repository', as
 test('console source keeps all gated task lifecycle controls wired into task cards', async ({ page }) => {
   await page.goto(CONSOLE_URL);
   const source = await page.locator('html').evaluate(() => document.documentElement.innerHTML);
-  expect(source).toContain('Start planning (Gemini, 1 AI call)');
+  expect(source).toContain('Start planning (');
   expect(source).toContain('Approve development');
   expect(source).toContain('Start development (1 AI call)');
   expect(source).toContain('Prepare review (no AI)');
@@ -140,6 +140,6 @@ test('Console exposes explicit project Planner settings', async ({ page }) => {
   expect(source).toContain('Save agent settings');
   expect(source).toContain('class="planner-setting"');
   expect(source).toContain('/api/project-settings');
-  expect(source).toContain('Manual Claude');
-  expect(source).toContain('Gemini');
+  expect(source).toContain('agentOptions("planner"');
+  expect(source).toContain('agent_catalog');
 });
