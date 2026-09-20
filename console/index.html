@@ -463,7 +463,7 @@
           return;
         }
         container.innerHTML = data.tasks.slice(0, 5).map((task) => {
-          const labels = task.labels.length ? task.labels.join(", ") : "Awaiting planning";
+          const labels = task.workspace?.status ? task.workspace.status.replaceAll("_", " ") : (task.labels.length ? task.labels.join(", ") : "Awaiting preparation");
           return '<a class="item" href="' + task.url + '" target="_blank" rel="noreferrer">' +
             '<div class="run-row"><div><div class="item-title">#' + task.number + ' ' + escapeHtml(task.title) + '</div>' +
             '<div class="item-meta">' + escapeHtml(labels) + '</div></div><span class="badge">Open</span></div></a>';
