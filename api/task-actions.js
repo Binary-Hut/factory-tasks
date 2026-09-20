@@ -21,6 +21,20 @@ async function loadRegistry(token) {
   }
 }
 
+async function requireReviewForHead(repository, prNumber, headSha, token) {
+  const comments = await github(`https://api.github.com/repos/${repository}/issues/${prNumber}/comments?per_page=100`, token);
+  const marker = `<!-- factory-reviewed-sha:${headSha} -->`;
+  const matched = comments.some((comment) =>
+    comment.user?.login === 'github-actions[bot]' &&
+    String(comment.body || '').includes(marker)
+  );
+  if (!matched) {
+    const error = new Error('The independent review is stale or was not recorded for the current pull-request commit. Run review again.');
+    error.status = 409;
+    throw error;
+  }
+}
+
 async function requireSuccessfulActions(repository, headSha, token) {
   const runs = await github(`https://api.github.com/repos/${repository}/actions/runs?head_sha=${encodeURIComponent(headSha)}&per_page=100`, token);
   const relevant = (runs.workflow_runs || []).filter((run) => ['Run Tests', 'Branch Collision Guard'].includes(run.name));
@@ -133,6 +147,7 @@ module.exports = async function handler(req, res) {
       if (pr.head.ref !== branch || pr.state !== 'open') return res.status(409).json({ error: 'The pull request does not match this active task branch.' });
       const labels = (await github(`https://api.github.com/repos/${repository}/issues/${prNumber}/labels`, session.token)).map((label) => label.name);
       if (!labels.includes('ai-review-ready')) return res.status(409).json({ error: 'Independent review has not approved this pull request.' });
+      await requireReviewForHead(repository, prNumber, pr.head.sha, session.token);
       await requireSuccessfulActions(repository, pr.head.sha, session.token);
       const combined = await github(`https://api.github.com/repos/${repository}/commits/${pr.head.sha}/status`, session.token);
       if (combined.state === 'failure' || combined.state === 'error' || combined.state === 'pending') return res.status(409).json({ error: 'A commit status is not passing yet.' });

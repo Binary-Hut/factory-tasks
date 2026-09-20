@@ -62,10 +62,16 @@ module.exports = async function handler(req, res) {
               const prs = await github(`https://api.github.com/repos/${repository}/pulls?state=open&head=${encodeURIComponent(repository.split('/')[0] + ':' + branch.name)}`, session.token);
               if (prs[0]) {
                 const prLabels = (prs[0].labels || []).map((label) => label.name);
-                const review = prLabels.includes('ai-review-ready') ? 'READY'
+                let review = prLabels.includes('ai-review-ready') ? 'READY'
                   : prLabels.includes('ai-review-changes-required') ? 'CHANGES_REQUIRED'
                   : prLabels.includes('ai-review-paused') ? 'PAUSED'
                   : 'NOT_REVIEWED';
+                if (review === 'READY') {
+                  const comments = await github(`https://api.github.com/repos/${repository}/issues/${prs[0].number}/comments?per_page=100`, session.token);
+                  const marker = `<!-- factory-reviewed-sha:${prs[0].head.sha} -->`;
+                  const currentReview = comments.some((comment) => comment.user?.login === 'github-actions[bot]' && String(comment.body || '').includes(marker));
+                  if (!currentReview) review = 'STALE';
+                }
                 pull_request = { number: prs[0].number, url: prs[0].html_url, review, mergeable: prs[0].mergeable };
               }
             } catch {}

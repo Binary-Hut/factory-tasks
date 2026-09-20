@@ -48,12 +48,15 @@ jobs:
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
             PR_NUMBER="$INPUT_PR"
             HEAD_REF="$(gh api "repos/$REPO/pulls/$PR_NUMBER" --jq .head.ref)"
+            HEAD_SHA="$(gh api "repos/$REPO/pulls/$PR_NUMBER" --jq .head.sha)"
             BASE_REF="$(gh api "repos/$REPO/pulls/$PR_NUMBER" --jq .base.ref)"
           else
             PR_NUMBER="$EVENT_PR"; HEAD_REF="$EVENT_HEAD"; BASE_REF="$EVENT_BASE"
+            HEAD_SHA="$(gh api "repos/$REPO/pulls/$PR_NUMBER" --jq .head.sha)"
           fi
           echo "number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
           echo "head_ref=$HEAD_REF" >> "$GITHUB_OUTPUT"
+          echo "head_sha=$HEAD_SHA" >> "$GITHUB_OUTPUT"
           echo "base_ref=$BASE_REF" >> "$GITHUB_OUTPUT"
 
       - name: Check out PR branch
@@ -95,8 +98,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ steps.pr.outputs.number }}
           REVIEW_BODY: ${{ steps.gemini.outputs.summary }}
+          REVIEWED_SHA: ${{ steps.pr.outputs.head_sha }}
         run: |
-          printf "## Gemini independent review\n\n%s\n\n_Model: gemini-3.1-flash-lite · automated review-only workflow_\n" "$REVIEW_BODY" > /tmp/review.md
+          printf "## Gemini independent review\n\n%s\n\n_Model: gemini-3.1-flash-lite · automated review-only workflow_\n\n<!-- factory-reviewed-sha:%s -->\n" "$REVIEW_BODY" "$REVIEWED_SHA" > /tmp/review.md
           gh pr comment "$PR_NUMBER" --body-file /tmp/review.md
           gh label create "ai-review-ready" --color "0E8A16" --description "AI review passed" --force
           gh label create "ai-review-changes-required" --color "D93F0B" --description "AI review found changes required" --force
