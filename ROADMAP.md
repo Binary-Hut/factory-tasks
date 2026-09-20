@@ -85,3 +85,8 @@ is confirmed working.
 - [ ] **Phase 11 — First productive Musical Hut project**
   Reuse this factory structure for a small real business tool, such as a
   Student Practice Tracker, while preserving the same cost and safety controls.
+
+
+## Independent verification
+
+Before Factory v2 is declared complete, run an explicitly approved independent Tester pass using `.ai/roles/TESTER.md`. Keep deterministic CI on every PR; use the paid/AI Tester at major milestones and final release rather than on every small infrastructure change.
