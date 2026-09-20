@@ -239,3 +239,17 @@ test('new project provisioning registers the repository and includes the Tester 
   assert.match(source, /\.ai\/roles\/TESTER\.md/);
   assert.ok(template.starter_files.copy_from_factory.includes('.ai/roles/TESTER.md'));
 });
+
+
+test('project template provisions an explicitly dispatched Planner workflow', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const template = require('../.factory/project-template.json');
+  const source = fs.readFileSync(path.resolve(__dirname, '../api/task-actions.js'), 'utf8');
+  const workflow = fs.readFileSync(path.resolve(__dirname, '../.factory/workflows/gemini-planner.yml'), 'utf8');
+  assert.ok(template.starter_files.copy_from_factory.includes('.factory/workflows/gemini-planner.yml -> .github/workflows/gemini-planner.yml'));
+  assert.match(source, /action === 'start-planning'/);
+  assert.match(source, /project\?\.agents\?\.planner !== 'gemini'/);
+  assert.match(workflow, /workflow_dispatch:/);
+  assert.match(workflow, /Status: READY_FOR_APPROVAL/);
+});
