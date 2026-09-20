@@ -20,7 +20,11 @@ these values:
 - `REVIEWING` — an independent AI review has started.
 - `CHANGES_REQUIRED` — the Reviewer found concrete issues.
 - `READY_TO_MERGE` — review and deterministic checks passed.
-- `DONE` — merged and production verification completed.
+- `MERGED` — approved code is on the default branch; production remains a
+  separate owner action when a provider is configured.
+- `DEPLOYING` — an explicitly approved production workflow is running.
+- `DONE` — merged and production verification completed, or merged with no
+  production provider configured.
 
 ## Safe transitions
 
@@ -47,7 +51,10 @@ CHANGES_REQUIRED
   -> READY_FOR_DEVELOPMENT  (after the plan/fix scope is explicitly updated)
 
 READY_TO_MERGE
-  -> DONE
+  -> MERGED
+       -> DEPLOYING  (owner approval only)
+            -> DONE
+       -> DONE        (no deployment provider)
 ```
 
 ## Pause/resume rules

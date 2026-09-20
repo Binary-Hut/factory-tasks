@@ -32,7 +32,9 @@ there next time you open the file in the same browser on the same device.
 
 (Automated tests are planned for a later phase — see ROADMAP.md.)
 
-## How to deploy it
+## How deployment works
 
-Not yet set up — this is a later phase (see ROADMAP.md, Phase 5). For now,
-the app runs entirely from the local `index.html` file.
+Factory Tasks is hosted on Vercel. Source changes pass deterministic tests and
+independent review before merge. Production deployment is a separate,
+owner-confirmed action in the Factory Console; it is never started by an AI
+agent or automatically retried.

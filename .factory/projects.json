@@ -9,6 +9,7 @@
       "lifecycle_status": "active",
       "deployment": {
         "provider": "vercel",
+        "workflow": "vercel-production.yml",
         "live_url": "https://factory-tasks-eta.vercel.app"
       },
       "agents": {
@@ -30,7 +31,8 @@
       "lifecycle_status": "active",
       "deployment": {
         "provider": "vercel",
-        "live_url": null
+        "workflow": "vercel-production.yml",
+        "live_url": "https://practice-timer-navy.vercel.app"
       },
       "agents": {
         "planner": "manual-claude",

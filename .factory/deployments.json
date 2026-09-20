@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "providers": {
+    "none": {
+      "label": "No deployment"
+    },
+    "vercel": {
+      "label": "Vercel",
+      "workflow": "vercel-production.yml"
+    }
+  }
+}

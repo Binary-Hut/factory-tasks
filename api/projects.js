@@ -14,7 +14,8 @@ const COPY_FILES = [
   ['.factory/workflows/gemini-planner.yml', '.github/workflows/gemini-planner.yml'],
   ['.factory/workflows/branch-collision-guard.yml', '.github/workflows/branch-collision-guard.yml'],
   ['.factory/workflows/codex-feature-developer.yml', '.github/workflows/codex-feature-developer.yml'],
-  ['.factory/workflows/gemini-review.yml', '.github/workflows/gemini-review.yml']
+  ['.factory/workflows/gemini-review.yml', '.github/workflows/gemini-review.yml'],
+  ['.factory/workflows/vercel-production.yml', '.github/workflows/vercel-production.yml']
 ];
 
 async function github(url, token, options = {}) {
@@ -73,7 +74,11 @@ async function registerProject(project, repository, token) {
     repository,
     project_type: project.project_type,
     lifecycle_status: 'active',
-    deployment: { provider: project.deployment || 'none', live_url: null },
+    deployment: {
+      provider: project.deployment || 'none',
+      workflow: project.deployment === 'vercel' ? 'vercel-production.yml' : null,
+      live_url: null
+    },
     agents: project.agents,
     ai_budget: project.ai_budget
   });

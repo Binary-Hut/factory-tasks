@@ -16,6 +16,8 @@ cards and buttons. GitHub remains the underlying source of truth.
 - `REVIEWING` — independent review is running.
 - `CHANGES_REQUIRED` — review found concrete changes.
 - `READY_TO_MERGE` — checks/review passed and human may merge.
+- `MERGED` — approved code merged; production is still a separate action.
+- `DEPLOYING` — the owner explicitly started the configured production workflow.
 - `DONE` — merged and production verification completed.
 
 ## Completed experiment
