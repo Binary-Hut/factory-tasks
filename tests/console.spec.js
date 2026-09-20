@@ -122,12 +122,13 @@ test('console points advanced controls at the Binary Hut factory repository', as
 test('console source keeps all gated task lifecycle controls wired into task cards', async ({ page }) => {
   await page.goto(CONSOLE_URL);
   const source = await page.locator('html').evaluate(() => document.documentElement.innerHTML);
+  expect(source).toContain('Start planning (Gemini, 1 AI call)');
   expect(source).toContain('Approve development');
   expect(source).toContain('Start development (1 AI call)');
   expect(source).toContain('Prepare review (no AI)');
   expect(source).toContain('Start review (1 AI call)');
   expect(source).toContain('Merge approved change');
-  expect(source).toContain('reviewState + approve + develop + retry + prepareReview + review + correction + reviewRetry + merge');
+  expect(source).toContain('reviewState + plan + approve + develop + retry + prepareReview + review + correction + reviewRetry + merge');
   expect(source).toContain('Retry Developer (1 AI call)');
   expect(source).toContain('Retry Reviewer (1 AI call)');
   expect(source).toContain('Start correction (1 AI call)');

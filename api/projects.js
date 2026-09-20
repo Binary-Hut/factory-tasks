@@ -11,6 +11,7 @@ const COPY_FILES = [
   ['.ai/roles/REVIEWER.md', '.ai/roles/REVIEWER.md'],
   ['.ai/roles/TESTER.md', '.ai/roles/TESTER.md'],
   ['.factory/workflows/test.yml', '.github/workflows/test.yml'],
+  ['.factory/workflows/gemini-planner.yml', '.github/workflows/gemini-planner.yml'],
   ['.factory/workflows/branch-collision-guard.yml', '.github/workflows/branch-collision-guard.yml'],
   ['.factory/workflows/codex-feature-developer.yml', '.github/workflows/codex-feature-developer.yml'],
   ['.factory/workflows/gemini-review.yml', '.github/workflows/gemini-review.yml']
