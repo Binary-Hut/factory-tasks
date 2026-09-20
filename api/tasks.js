@@ -18,9 +18,15 @@ async function github(url, token, options = {}) {
 
 function sameOrigin(req) {
   const origin = req.headers.origin;
-  if (!origin) return true;
+  const site = req.headers['sec-fetch-site'];
+  if (site && !['same-origin', 'same-site', 'none'].includes(site)) return false;
+  if (!origin) return site === 'same-origin' || site === 'same-site' || site === 'none';
   const host = req.headers.host;
   return origin === `https://${host}` || origin === `http://${host}`;
+}
+
+function slugify(value) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 48) || 'change';
 }
 
 module.exports = async function handler(req, res) {
@@ -61,7 +67,41 @@ module.exports = async function handler(req, res) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title, body: issueBody })
     });
-    return res.status(201).json({ ok: true, repository, issue_number: issue.number, issue_url: issue.html_url, next: 'Task created. No paid AI agent was started.' });
+
+    const repo = await github(`https://api.github.com/repos/${repository}`, session.token);
+    const base = await github(`https://api.github.com/repos/${repository}/git/ref/heads/${repo.default_branch}`, session.token);
+    const branch = `task/${issue.number}-${slugify(title)}`;
+    await github(`https://api.github.com/repos/${repository}/git/refs`, session.token, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ref: `refs/heads/${branch}`, sha: base.object.sha })
+    });
+
+    const planPath = `.ai/tasks/${issue.number}-${slugify(title)}.md`;
+    const plan = [
+      `# Task #${issue.number} — ${title}`, '',
+      'Status: NEEDS_PLANNING', '',
+      `Issue: #${issue.number}`, '',
+      '## Owner request', '', request, '',
+      '## Plan', '', 'Pending planner stage.', '',
+      '## Acceptance criteria', '', 'Pending planner stage.', '',
+      '## Approval', '', 'Development must not start until this plan is explicitly approved.'
+    ].join('\n');
+    await github(`https://api.github.com/repos/${repository}/contents/${planPath}`, session.token, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: `Prepare task #${issue.number} for planning`,
+        content: Buffer.from(plan).toString('base64'),
+        branch
+      })
+    });
+
+    return res.status(201).json({
+      ok: true, repository, issue_number: issue.number, issue_url: issue.html_url,
+      branch, plan_path: planPath, status: 'NEEDS_PLANNING',
+      next: 'Task prepared for planning. No paid AI agent was started.'
+    });
   } catch (error) {
     return res.status(502).json({ error: 'Task creation failed.', detail: error.message });
   }
