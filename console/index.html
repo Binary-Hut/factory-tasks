@@ -292,8 +292,8 @@
 
     <section class="grid">
       <article class="panel wide">
-        <h2>Projects</h2>
-        <p class="muted">Choose a project to see its repository, configured AI roles, and start a feature or fix.</p>
+        <h2>Your projects</h2>
+        <p class="muted">Manage an existing app here. Choose <strong>Change / fix project</strong> to add a feature, fix a bug, remove unwanted code, or request another change.</p>
         <div class="work-list" id="project-list"><div class="empty">Loading projects…</div></div>
       </article>
     </section>
@@ -351,9 +351,10 @@
 
     <section class="grid">
       <article class="panel">
-        <h2>Start a new task</h2>
+        <h2>Change an existing project</h2>
+        <p class="muted" id="selected-project-note">First choose <strong>Change / fix project</strong> under one of Your projects above.</p>
         <form id="new-task-form">
-          <label for="task-text" class="muted">Describe what you want in plain English.</label>
+          <label for="task-text" class="muted">Describe the feature, fix, cleanup, or other change in plain English.</label>
           <textarea id="task-text" placeholder="Example: Add a dark mode button to the app." required></textarea>
           <button class="button primary" id="create-task-btn" type="submit">Create task</button>
           <div class="result" id="task-result"></div>
@@ -425,7 +426,7 @@
             '<div class="run-row"><div><div class="item-title">' + escapeHtml(project.name) + '</div>' +
             '<div class="item-meta">' + escapeHtml(project.project_type || "project") + ' · ' +
             escapeHtml(project.lifecycle_status || "active") + '</div></div>' +
-            '<div class="toolbar"><button class="button project-task-btn" data-repo="' + escapeHtml(project.repository) + '">New feature / fix</button>' +
+            '<div class="toolbar"><button class="button project-task-btn" data-repo="' + escapeHtml(project.repository) + '">Change / fix project</button>' +
             deployment + '<a class="button" href="' + repoUrl + '" target="_blank" rel="noreferrer">Repository</a></div></div>' +
             '<div class="item-meta" style="margin-top:8px">Planner: ' + escapeHtml(project.agents?.planner || "default") +
             ' · Developer: ' + escapeHtml(project.agents?.developer || "default") +
@@ -439,6 +440,9 @@
             const textarea = document.getElementById("task-text");
             textarea.dataset.repository = button.dataset.repo;
             textarea.placeholder = "Describe the change you want for " + button.dataset.repo + ".";
+            const project = factoryProjects.find((item) => item.repository === button.dataset.repo);
+            document.getElementById("selected-project-note").textContent =
+              "Selected project: " + (project?.name || button.dataset.repo) + ". This request will be created only in this project.";
             textarea.scrollIntoView({ behavior: "smooth", block: "center" });
             textarea.focus();
           });
@@ -750,7 +754,7 @@
       const result = document.getElementById("task-result");
       const button = document.getElementById("create-task-btn");
       if (!repository) {
-        result.textContent = "Choose a project above, then click New feature / fix.";
+        result.textContent = "Choose a project above, then click Change / fix project.";
         result.style.display = "block";
         return;
       }
