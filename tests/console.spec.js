@@ -133,3 +133,13 @@ test('console source keeps all gated task lifecycle controls wired into task car
   expect(source).toContain('Retry Reviewer (1 AI call)');
   expect(source).toContain('Start correction (1 AI call)');
 });
+
+
+test('Console exposes explicit project Planner settings', async ({ page }) => {
+  const source = require('node:fs').readFileSync(require('node:path').resolve(__dirname, '../console/index.html'), 'utf8');
+  expect(source).toContain('Save agent settings');
+  expect(source).toContain('class="planner-setting"');
+  expect(source).toContain('/api/project-settings');
+  expect(source).toContain('Manual Claude');
+  expect(source).toContain('Gemini');
+});
