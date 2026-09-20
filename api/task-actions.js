@@ -13,7 +13,9 @@ async function github(url, token, options = {}) {
 
 async function acquireDispatchLock(repository, branch, planPath, stage, token) {
   const safe = branch.replace(/[^a-zA-Z0-9._-]+/g, '-');
-  const path = `.ai/locks/${safe}-${stage}.json`;
+  const plan = await github(`https://api.github.com/repos/${repository}/contents/${planPath}?ref=${encodeURIComponent(branch)}`, token);
+  const generation = String(plan.sha || '').slice(0, 12);
+  const path = `.ai/locks/${safe}-${stage}-${generation}.json`;
   try {
     await github(`https://api.github.com/repos/${repository}/contents/${path}?ref=${encodeURIComponent(branch)}`, token);
     const error = new Error('This AI stage has already been dispatched. Wait for its current run to finish before taking another action.');
@@ -108,7 +110,6 @@ module.exports = async function handler(req, res) {
       const file = await github(`https://api.github.com/repos/${repository}/contents/${planPath}?ref=${encodeURIComponent(branch)}`, session.token);
       const text = Buffer.from(file.content, 'base64').toString('utf8');
       if (!text.includes('Status: READY_FOR_REVIEW')) return res.status(409).json({ error: 'This task is not in the review stage.' });
-      await acquireDispatchLock(repository, branch, planPath, 'correction', session.token);
       const updated = text.replace('Status: READY_FOR_REVIEW', 'Status: READY_FOR_CORRECTION');
       await github(`https://api.github.com/repos/${repository}/contents/${planPath}`, session.token, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
@@ -145,7 +146,6 @@ module.exports = async function handler(req, res) {
       const file = await github(`https://api.github.com/repos/${repository}/contents/${planPath}?ref=${encodeURIComponent(branch)}`, session.token);
       const text = Buffer.from(file.content, 'base64').toString('utf8');
       if (!text.includes('Status: PAUSED_AI_FAILURE')) return res.status(409).json({ error: 'This task is not paused after an AI failure.' });
-      await acquireDispatchLock(repository, branch, planPath, 'development-retry', session.token);
       const updated = text.replace('Status: PAUSED_AI_FAILURE', 'Status: READY_FOR_RETRY');
       await github(`https://api.github.com/repos/${repository}/contents/${planPath}`, session.token, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
