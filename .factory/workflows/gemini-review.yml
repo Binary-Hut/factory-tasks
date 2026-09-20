@@ -1,12 +1,14 @@
 name: Gemini PR Reviewer
 
 on:
-  pull_request:
-    types: [labeled, reopened]
   workflow_dispatch:
     inputs:
       pr_number:
         description: "Pull request number to review"
+        required: true
+        type: string
+      model:
+        description: "Catalog-approved Gemini model"
         required: true
         type: string
 
@@ -16,14 +18,11 @@ permissions:
   issues: write
 
 concurrency:
-  group: gemini-review-${{ github.event.pull_request.number || inputs.pr_number }}
+  group: gemini-review-${{ inputs.pr_number }}
   cancel-in-progress: true
 
 jobs:
   review:
-    if: >
-      github.event_name == 'workflow_dispatch' ||
-      contains(github.event.pull_request.labels.*.name, 'ready-for-ai-review')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -38,22 +37,13 @@ jobs:
         id: pr
         env:
           GH_TOKEN: ${{ github.token }}
-          EVENT_NAME: ${{ github.event_name }}
-          EVENT_PR: ${{ github.event.pull_request.number }}
-          EVENT_HEAD: ${{ github.event.pull_request.head.ref }}
-          EVENT_BASE: ${{ github.event.pull_request.base.ref }}
           INPUT_PR: ${{ inputs.pr_number }}
           REPO: ${{ github.repository }}
         run: |
-          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
-            PR_NUMBER="$INPUT_PR"
-            HEAD_REF="$(gh api "repos/$REPO/pulls/$PR_NUMBER" --jq .head.ref)"
-            HEAD_SHA="$(gh api "repos/$REPO/pulls/$PR_NUMBER" --jq .head.sha)"
-            BASE_REF="$(gh api "repos/$REPO/pulls/$PR_NUMBER" --jq .base.ref)"
-          else
-            PR_NUMBER="$EVENT_PR"; HEAD_REF="$EVENT_HEAD"; BASE_REF="$EVENT_BASE"
-            HEAD_SHA="$(gh api "repos/$REPO/pulls/$PR_NUMBER" --jq .head.sha)"
-          fi
+          PR_NUMBER="$INPUT_PR"
+          HEAD_REF="$(gh api "repos/$REPO/pulls/$PR_NUMBER" --jq .head.ref)"
+          HEAD_SHA="$(gh api "repos/$REPO/pulls/$PR_NUMBER" --jq .head.sha)"
+          BASE_REF="$(gh api "repos/$REPO/pulls/$PR_NUMBER" --jq .base.ref)"
           echo "number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
           echo "head_ref=$HEAD_REF" >> "$GITHUB_OUTPUT"
           echo "head_sha=$HEAD_SHA" >> "$GITHUB_OUTPUT"
@@ -80,7 +70,7 @@ jobs:
         uses: google-github-actions/run-gemini-cli@v0
         with:
           gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
-          gemini_model: gemini-3.1-flash-lite
+          gemini_model: ${{ inputs.model }}
           prompt: |
             You are the independent Reviewer for ${{ github.repository }}. This is REVIEW-ONLY.
             Read AI_POLICY.md, AGENTS.md, PRODUCT.md, ARCHITECTURE.md, .ai/roles/REVIEWER.md, the approved task plan under .ai/tasks/, .gemini-review-meta.txt, and .gemini-review.diff.
@@ -99,8 +89,9 @@ jobs:
           PR_NUMBER: ${{ steps.pr.outputs.number }}
           REVIEW_BODY: ${{ steps.gemini.outputs.summary }}
           REVIEWED_SHA: ${{ steps.pr.outputs.head_sha }}
+          REVIEW_MODEL: ${{ inputs.model }}
         run: |
-          printf "## Gemini independent review\n\n%s\n\n_Model: gemini-3.1-flash-lite · automated review-only workflow_\n\n<!-- factory-reviewed-sha:%s -->\n" "$REVIEW_BODY" "$REVIEWED_SHA" > /tmp/review.md
+          printf "## Independent AI review\n\n%s\n\n_Model: %s · automated review-only workflow_\n\n<!-- factory-reviewed-sha:%s -->\n" "$REVIEW_BODY" "$REVIEW_MODEL" "$REVIEWED_SHA" > /tmp/review.md
           gh pr comment "$PR_NUMBER" --body-file /tmp/review.md
           gh label create "ai-review-ready" --color "0E8A16" --description "AI review passed" --force
           gh label create "ai-review-changes-required" --color "D93F0B" --description "AI review found changes required" --force

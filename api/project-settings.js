@@ -36,20 +36,26 @@ module.exports = async function handler(req, res) {
   let body = req.body || {};
   if (typeof body === 'string') { try { body = JSON.parse(body); } catch { return res.status(400).json({ error: 'Invalid JSON request.' }); } }
   const repository = String(body.repository || '').trim();
-  const planner = String(body.planner || '').trim();
-  if (!allowedAgent('planner', planner)) return res.status(400).json({ error: 'Choose a supported Planner configuration.' });
+  const requested = {
+    planner: String(body.planner || '').trim(),
+    developer: String(body.developer || '').trim(),
+    reviewer: String(body.reviewer || '').trim()
+  };
+  for (const [role, id] of Object.entries(requested)) {
+    if (!allowedAgent(role, id)) return res.status(400).json({ error: `Choose a supported ${role} configuration.` });
+  }
 
   try {
     const file = await github(`https://api.github.com/repos/${SOURCE_REPO}/contents/${REGISTRY_PATH}?ref=main`, session.token);
     const registry = JSON.parse(Buffer.from(String(file.content || '').replace(/\n/g, ''), 'base64').toString('utf8'));
     const project = (registry.projects || []).find((item) => item.repository === repository);
     if (!project) return res.status(404).json({ error: 'Registered project not found.' });
-    project.agents = { ...(project.agents || {}), planner };
+    project.agents = { ...(project.agents || {}), ...requested };
     await github(`https://api.github.com/repos/${SOURCE_REPO}/contents/${REGISTRY_PATH}`, session.token, {
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: `Configure Planner for ${project.name}`, content: Buffer.from(JSON.stringify(registry, null, 2) + '\n').toString('base64'), sha: file.sha, branch: 'main' })
+      body: JSON.stringify({ message: `Configure Factory agents for ${project.name}`, content: Buffer.from(JSON.stringify(registry, null, 2) + '\n').toString('base64'), sha: file.sha, branch: 'main' })
     });
-    return res.status(200).json({ ok: true, repository, agents: project.agents, next: planner === 'gemini' ? 'Gemini planning is enabled, but each Planner call still requires explicit owner confirmation.' : 'Planning remains manual; no Planner AI call can start from the Console.' });
+    return res.status(200).json({ ok: true, repository, agents: project.agents, next: 'Agent configuration saved. Every paid AI stage still requires its explicit lifecycle action.' });
   } catch (error) {
     return res.status(error.status || 502).json({ error: 'Could not update project agent settings.', detail: error.message });
   }

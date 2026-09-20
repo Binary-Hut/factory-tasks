@@ -249,7 +249,7 @@ test('project template provisions an explicitly dispatched Planner workflow', ()
   const workflow = fs.readFileSync(path.resolve(__dirname, '../.factory/workflows/gemini-planner.yml'), 'utf8');
   assert.ok(template.starter_files.copy_from_factory.includes('.factory/workflows/gemini-planner.yml -> .github/workflows/gemini-planner.yml'));
   assert.match(source, /action === 'start-planning'/);
-  assert.match(source, /agentCatalog\.roles\?\.planner/);
+  assert.match(source, /configuredAgent\(project, 'planner'\)/);
   assert.match(source, /planner\.workflow/);
   assert.match(source, /model: planner\.model/);
   assert.match(source, /async function loadRegistry/);
@@ -308,4 +308,23 @@ test('project task discovery uses the live registry with a bundled fallback', ()
   assert.match(source, /\.factory\/projects\.json\?ref=main/);
   assert.match(source, /return bundledRegistry/);
   assert.match(source, /registered\(registry, repository\)/);
+});
+
+
+test('Developer and Reviewer dispatch use the extensible agent catalog', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const actions = fs.readFileSync(path.resolve(__dirname, '../api/task-actions.js'), 'utf8');
+  const settings = fs.readFileSync(path.resolve(__dirname, '../api/project-settings.js'), 'utf8');
+  const developer = fs.readFileSync(path.resolve(__dirname, '../.factory/workflows/codex-feature-developer.yml'), 'utf8');
+  const reviewer = fs.readFileSync(path.resolve(__dirname, '../.factory/workflows/gemini-review.yml'), 'utf8');
+  assert.match(settings, /developer: String\(body\.developer/);
+  assert.match(settings, /reviewer: String\(body\.reviewer/);
+  assert.match(actions, /configuredAgent\(project, 'developer'\)/);
+  assert.match(actions, /configuredAgent\(project, 'reviewer'\)/);
+  assert.match(actions, /model: developer\.model/);
+  assert.match(actions, /model: reviewer\.model/);
+  assert.match(developer, /model: \$\{\{ inputs\.model \}\}/);
+  assert.match(reviewer, /gemini_model: \$\{\{ inputs\.model \}\}/);
+  assert.doesNotMatch(reviewer, /pull_request:\s*\n/);
 });
