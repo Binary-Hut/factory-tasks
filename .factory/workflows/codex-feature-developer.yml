@@ -40,8 +40,8 @@ jobs:
       - name: Verify approved plan exists
         run: |
           test -f "${{ inputs.plan_path }}" || { echo "Plan file not found." >&2; exit 1; }
-          grep -Eq "Status: (READY_FOR_DEVELOPMENT|READY_FOR_RETRY)" "${{ inputs.plan_path }}" || {
-            echo "Plan must be READY_FOR_DEVELOPMENT or READY_FOR_RETRY." >&2
+          grep -Eq "Status: (READY_FOR_DEVELOPMENT|READY_FOR_RETRY|READY_FOR_CORRECTION)" "${{ inputs.plan_path }}" || {
+            echo "Plan must be READY_FOR_DEVELOPMENT, READY_FOR_RETRY, or READY_FOR_CORRECTION." >&2
             exit 1
           }
 
@@ -58,6 +58,8 @@ jobs:
               t = t.replace("Status: READY_FOR_DEVELOPMENT", "Status: DEVELOPING", 1)
           elif "Status: READY_FOR_RETRY" in t:
               t = t.replace("Status: READY_FOR_RETRY", "Status: DEVELOPING", 1)
+          elif "Status: READY_FOR_CORRECTION" in t:
+              t = t.replace("Status: READY_FOR_CORRECTION", "Status: DEVELOPING", 1)
           else:
               raise SystemExit("Task is not startable.")
           p.write_text(t)
