@@ -249,7 +249,9 @@ test('project template provisions an explicitly dispatched Planner workflow', ()
   const workflow = fs.readFileSync(path.resolve(__dirname, '../.factory/workflows/gemini-planner.yml'), 'utf8');
   assert.ok(template.starter_files.copy_from_factory.includes('.factory/workflows/gemini-planner.yml -> .github/workflows/gemini-planner.yml'));
   assert.match(source, /action === 'start-planning'/);
-  assert.match(source, /project\?\.agents\?\.planner !== 'gemini'/);
+  assert.match(source, /agentCatalog\.roles\?\.planner/);
+  assert.match(source, /planner\.workflow/);
+  assert.match(source, /model: planner\.model/);
   assert.match(workflow, /workflow_dispatch:/);
   assert.match(workflow, /Status: READY_FOR_APPROVAL/);
 });
@@ -262,7 +264,10 @@ test('project agent settings are owner-authenticated, same-origin, and Planner a
   const registry = fs.readFileSync(path.resolve(__dirname, '../api/project-registry.js'), 'utf8');
   assert.match(source, /sameOrigin\(req\)/);
   assert.match(source, /session\.login\.toLowerCase\(\) !== config\.owner\.toLowerCase\(\)/);
-  assert.match(source, /ALLOWED_PLANNERS = new Set\(\['manual-claude', 'gemini'\]\)/);
+  assert.match(source, /agentCatalog\.roles\?\.\[role\]\?\.options/);
   assert.match(source, /sha: file\.sha/);
   assert.match(registry, /async function liveRegistry/);
+  const catalog = require('../.factory/agents.json');
+  assert.ok(Array.isArray(catalog.roles.planner.options));
+  assert.ok(catalog.roles.planner.options.some((option) => option.id === 'gemini' && option.model));
 });
