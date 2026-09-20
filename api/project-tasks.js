@@ -60,7 +60,14 @@ module.exports = async function handler(req, res) {
             let pull_request = null;
             try {
               const prs = await github(`https://api.github.com/repos/${repository}/pulls?state=open&head=${encodeURIComponent(repository.split('/')[0] + ':' + branch.name)}`, session.token);
-              if (prs[0]) pull_request = { number: prs[0].number, url: prs[0].html_url };
+              if (prs[0]) {
+                const prLabels = (prs[0].labels || []).map((label) => label.name);
+                const review = prLabels.includes('ai-review-ready') ? 'READY'
+                  : prLabels.includes('ai-review-changes-required') ? 'CHANGES_REQUIRED'
+                  : prLabels.includes('ai-review-paused') ? 'PAUSED'
+                  : 'NOT_REVIEWED';
+                pull_request = { number: prs[0].number, url: prs[0].html_url, review, mergeable: prs[0].mergeable };
+              }
             } catch {}
             workspace = { branch: branch.name, plan_path: plan.path, status, pull_request };
           }
