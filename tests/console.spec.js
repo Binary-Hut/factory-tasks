@@ -152,3 +152,10 @@ test('Console exposes catalog-driven Developer and Reviewer settings', async ({ 
   expect(source).toContain('agentOptions("developer"');
   expect(source).toContain('agentOptions("reviewer"');
 });
+
+test('Console shows task agent ownership, AI usage, and project budgets', async ({ page }) => {
+  const source = require('node:fs').readFileSync(require('node:path').resolve(__dirname, '../console/index.html'), 'utf8');
+  expect(source).toContain('AI calls recorded');
+  expect(source).toContain('current_agent');
+  expect(source).toContain('AI budget: Developer');
+});
