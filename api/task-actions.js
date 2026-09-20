@@ -96,7 +96,11 @@ module.exports = async function handler(req, res) {
   const planPath = String(body.plan_path || '').trim();
   const action = String(body.action || '').trim();
   if (!(registry.projects || []).some((p) => p.repository === repository)) return res.status(400).json({ error: 'Choose a registered factory project.' });
-  if (!/^task\/[a-zA-Z0-9._/-]+$/.test(branch) || !/^\.ai\/tasks\/[a-zA-Z0-9._/-]+\.md$/.test(planPath)) return res.status(400).json({ error: 'Invalid task workspace.' });
+  const branchMatch = branch.match(/^task\/(\d+)-[a-zA-Z0-9][a-zA-Z0-9._-]*$/);
+  const planMatch = planPath.match(/^\.ai\/tasks\/(\d+)-[a-zA-Z0-9][a-zA-Z0-9._-]*\.md$/);
+  if (!branchMatch || !planMatch || branchMatch[1] !== planMatch[1] || branch.includes('..') || planPath.includes('..')) {
+    return res.status(400).json({ error: 'Invalid or mismatched task workspace.' });
+  }
   if (!['approve-development', 'start-development', 'retry-development', 'prepare-review', 'start-review', 'retry-review', 'start-correction', 'merge'].includes(action)) return res.status(400).json({ error: 'Unsupported lifecycle action.' });
 
   try {
@@ -126,7 +130,7 @@ module.exports = async function handler(req, res) {
       const owner = repository.split('/')[0];
       const existing = await github(`https://api.github.com/repos/${repository}/pulls?state=open&head=${encodeURIComponent(owner + ':' + branch)}`, session.token);
       if (existing[0]) return res.status(200).json({ ok: true, status: 'REVIEW_PR_READY', pr_number: existing[0].number, url: existing[0].html_url, next: 'Existing pull request is ready for independent review.' });
-      const issueNumber = Number(branch.match(/^task\/(\d+)-/)?.[1]);
+      const issueNumber = Number(branchMatch[1]);
       let title = `Factory task #${issueNumber || ''}`.trim();
       if (issueNumber) {
         try { const issue = await github(`https://api.github.com/repos/${repository}/issues/${issueNumber}`, session.token); title = issue.title || title; } catch {}

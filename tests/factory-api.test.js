@@ -215,3 +215,15 @@ test('merge gate requires successful deterministic GitHub Actions for the PR hea
   assert.match(source, /run\.status !== 'completed' \|\| run\.conclusion !== 'success'/);
   assert.match(source, /combined\.state === 'pending'/);
 });
+
+
+test('lifecycle actions require a single-task branch and matching plan workspace', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const source = fs.readFileSync(path.resolve(__dirname, '../api/task-actions.js'), 'utf8');
+  assert.match(source, /branchMatch = branch\.match/);
+  assert.match(source, /planMatch = planPath\.match/);
+  assert.match(source, /branchMatch\[1\] !== planMatch\[1\]/);
+  assert.match(source, /branch\.includes\('\.\.'\)/);
+  assert.match(source, /planPath\.includes\('\.\.'\)/);
+});
