@@ -309,3 +309,22 @@ test('project task discovery uses the live registry with a bundled fallback', ()
   assert.match(source, /return bundledRegistry/);
   assert.match(source, /registered\(registry, repository\)/);
 });
+
+
+test('Developer and Reviewer dispatch use the extensible agent catalog', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const actions = fs.readFileSync(path.resolve(__dirname, '../api/task-actions.js'), 'utf8');
+  const settings = fs.readFileSync(path.resolve(__dirname, '../api/project-settings.js'), 'utf8');
+  const developer = fs.readFileSync(path.resolve(__dirname, '../.factory/workflows/codex-feature-developer.yml'), 'utf8');
+  const reviewer = fs.readFileSync(path.resolve(__dirname, '../.factory/workflows/gemini-review.yml'), 'utf8');
+  assert.match(settings, /developer: String\(body\.developer/);
+  assert.match(settings, /reviewer: String\(body\.reviewer/);
+  assert.match(actions, /configuredAgent\(project, 'developer'\)/);
+  assert.match(actions, /configuredAgent\(project, 'reviewer'\)/);
+  assert.match(actions, /model: developer\.model/);
+  assert.match(actions, /model: reviewer\.model/);
+  assert.match(developer, /model: \$\{\{ inputs\.model \}\}/);
+  assert.match(reviewer, /gemini_model: \$\{\{ inputs\.model \}\}/);
+  assert.doesNotMatch(reviewer, /pull_request:\s*\n/);
+});
