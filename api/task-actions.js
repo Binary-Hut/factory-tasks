@@ -35,9 +35,20 @@ module.exports = async function handler(req, res) {
   const action = String(body.action || '').trim();
   if (!(registry.projects || []).some((p) => p.repository === repository)) return res.status(400).json({ error: 'Choose a registered factory project.' });
   if (!/^task\/[a-zA-Z0-9._/-]+$/.test(branch) || !/^\.ai\/tasks\/[a-zA-Z0-9._/-]+\.md$/.test(planPath)) return res.status(400).json({ error: 'Invalid task workspace.' });
-  if (action !== 'approve-development') return res.status(400).json({ error: 'Unsupported lifecycle action.' });
+  if (!['approve-development', 'start-development'].includes(action)) return res.status(400).json({ error: 'Unsupported lifecycle action.' });
 
   try {
+    if (action === 'start-development') {
+      const file = await github(`https://api.github.com/repos/${repository}/contents/${planPath}?ref=${encodeURIComponent(branch)}`, session.token);
+      const text = Buffer.from(file.content, 'base64').toString('utf8');
+      if (!text.includes('Status: READY_FOR_DEVELOPMENT')) return res.status(409).json({ error: 'This task is not approved for development.' });
+      await github(`https://api.github.com/repos/${repository}/actions/workflows/codex-feature-developer.yml/dispatches`, session.token, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ref: branch, inputs: { branch, plan_path: planPath } })
+      });
+      return res.status(202).json({ ok: true, status: 'DEVELOPMENT_DISPATCHED', next: 'One approved Developer AI run was requested. Automatic retry remains disabled.' });
+    }
+
     const file = await github(`https://api.github.com/repos/${repository}/contents/${planPath}?ref=${encodeURIComponent(branch)}`, session.token);
     const text = Buffer.from(file.content, 'base64').toString('utf8');
     if (!text.includes('Status: READY_FOR_APPROVAL')) return res.status(409).json({ error: 'This plan is not ready for approval yet.' });
