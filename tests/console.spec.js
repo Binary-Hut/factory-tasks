@@ -117,3 +117,14 @@ test('console points advanced controls at the Binary Hut factory repository', as
   await expect(page.getByRole('link', { name: 'Advanced' }))
     .toHaveAttribute('href', 'https://github.com/Binary-Hut/factory-tasks');
 });
+
+
+test('console source keeps all gated task lifecycle controls wired into task cards', async ({ page }) => {
+  await page.goto(CONSOLE_URL);
+  const source = await page.locator('html').evaluate(() => document.documentElement.innerHTML);
+  expect(source).toContain('Approve development');
+  expect(source).toContain('Start development (1 AI call)');
+  expect(source).toContain('Start review (1 AI call)');
+  expect(source).toContain('Merge approved change');
+  expect(source).toContain('reviewState + approve + develop + review + merge');
+});
