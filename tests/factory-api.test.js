@@ -273,3 +273,17 @@ test('project agent settings are owner-authenticated, same-origin, and Planner a
   assert.ok(Array.isArray(catalog.roles.planner.options));
   assert.ok(catalog.roles.planner.options.some((option) => option.id === 'gemini' && option.model));
 });
+
+
+test('merge approval is bound to the exact PR head reviewed by the independent reviewer', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const actions = fs.readFileSync(path.resolve(__dirname, '../api/task-actions.js'), 'utf8');
+  const tasks = fs.readFileSync(path.resolve(__dirname, '../api/project-tasks.js'), 'utf8');
+  const workflow = fs.readFileSync(path.resolve(__dirname, '../.factory/workflows/gemini-review.yml'), 'utf8');
+  assert.match(workflow, /factory-reviewed-sha:%s/);
+  assert.match(workflow, /REVIEWED_SHA:/);
+  assert.match(actions, /requireReviewForHead\(repository, prNumber, pr\.head\.sha/);
+  assert.match(actions, /comment\.user\?\.login === 'github-actions\[bot\]'/);
+  assert.match(tasks, /if \(!currentReview\) review = 'STALE'/);
+});
