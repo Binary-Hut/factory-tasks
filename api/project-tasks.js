@@ -1,5 +1,5 @@
 const { getConfig, isConfigured, readSession } = require('../lib/factory-auth');
-const registry = require('../.factory/projects.json');
+const bundledRegistry = require('../.factory/projects.json');
 
 async function github(url, token, options = {}) {
   const response = await fetch(url, {
@@ -27,7 +27,16 @@ function authorized(req) {
   return session && session.login.toLowerCase() === config.owner.toLowerCase() ? session : null;
 }
 
-function registered(repository) {
+async function loadRegistry(token) {
+  try {
+    const file = await github('https://api.github.com/repos/Binary-Hut/factory-tasks/contents/.factory/projects.json?ref=main', token);
+    return JSON.parse(Buffer.from(String(file.content || '').replace(/\n/g, ''), 'base64').toString('utf8'));
+  } catch (_) {
+    return bundledRegistry;
+  }
+}
+
+function registered(registry, repository) {
   return (registry.projects || []).some((item) => item.repository === repository);
 }
 
@@ -40,7 +49,8 @@ module.exports = async function handler(req, res) {
   if (!session) return res.status(401).json({ error: 'Sign in with the authorized GitHub account first.' });
 
   const repository = String(req.query?.repository || '').trim();
-  if (!registered(repository)) return res.status(400).json({ error: 'Choose a registered factory project.' });
+  const registry = await loadRegistry(session.token);
+  if (!registered(registry, repository)) return res.status(400).json({ error: 'Choose a registered factory project.' });
 
   try {
     const issues = await github(`https://api.github.com/repos/${repository}/issues?state=open&per_page=30&sort=updated&direction=desc`, session.token);

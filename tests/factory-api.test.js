@@ -298,3 +298,14 @@ test('project provisioning rejects cross-origin browser requests before mutation
   assert.match(source, /if \(!sameOrigin\(req\)\)/);
   assert.match(source, /Cross-origin project provisioning is not allowed/);
 });
+
+
+test('project task discovery uses the live registry with a bundled fallback', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const source = fs.readFileSync(path.resolve(__dirname, '../api/project-tasks.js'), 'utf8');
+  assert.match(source, /async function loadRegistry\(token\)/);
+  assert.match(source, /\.factory\/projects\.json\?ref=main/);
+  assert.match(source, /return bundledRegistry/);
+  assert.match(source, /registered\(registry, repository\)/);
+});
