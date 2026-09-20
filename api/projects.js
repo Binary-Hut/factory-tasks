@@ -92,10 +92,22 @@ function base64(text) {
   return Buffer.from(text, 'utf8').toString('base64');
 }
 
+function sameOrigin(req) {
+  const origin = req.headers.origin;
+  const site = req.headers['sec-fetch-site'];
+  if (site && !['same-origin', 'same-site', 'none'].includes(site)) return false;
+  if (!origin) return site === 'same-origin' || site === 'same-site' || site === 'none';
+  return origin === `https://${req.headers.host}` || origin === `http://${req.headers.host}`;
+}
+
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  if (!sameOrigin(req)) {
+    return res.status(403).json({ error: 'Cross-origin project provisioning is not allowed.' });
   }
 
   if (!isConfigured()) {
