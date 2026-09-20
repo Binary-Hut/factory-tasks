@@ -13,30 +13,18 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Check out code
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24
-
-      - name: Install and run deterministic tests
+      - name: Run project deterministic test contract
         shell: bash
         run: |
           set -euo pipefail
-          if [ ! -f package.json ]; then
-            echo "No package.json test harness exists yet. Planning-only repositories may omit it; implementation PRs must add deterministic tests."
+          if [ ! -f .factory/test.sh ]; then
+            echo "No .factory/test.sh yet. Planning-only repositories may omit it; implementation PRs must add the project-specific deterministic test contract."
             exit 0
           fi
-          if [ -f package-lock.json ]; then
-            npm ci
-          else
-            npm install
-          fi
-          if npm ls @playwright/test --depth=0 >/dev/null 2>&1; then
-            npx playwright install chromium
-          fi
-          npm test
+          chmod +x .factory/test.sh
+          ./.factory/test.sh

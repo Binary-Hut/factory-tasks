@@ -57,3 +57,9 @@ under `.github/workflows/`.
 
 Project creation itself never starts a paid AI agent. AI credentials remain GitHub
 Actions secrets can now be centralized at the Binary Hut organization level and granted to the public project repositories that need them. The Factory Console creates new repositories inside Binary Hut; the authorized OAuth user remains separate from the destination organization.
+
+## Generic deterministic test contract
+
+Implemented projects use `.factory/test.sh` as the single CI entry point for deterministic validation. The shared workflows do not assume Node, npm, Playwright, Python, mobile, or any other stack. Each project's script is responsible for installing or invoking only the tooling approved for that project and returning a non-zero exit code on failure.
+
+Planning-only repositories may temporarily omit the script. Before an implementation can advance to review, the developer workflow requires the script to exist and pass.

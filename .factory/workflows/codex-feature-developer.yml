@@ -75,7 +75,7 @@ jobs:
             Read AI_POLICY.md, .ai/BRANCH_OWNERSHIP.md, AGENTS.md, PRODUCT.md, ARCHITECTURE.md, .ai/roles/DEVELOPER.md, and ${{ inputs.plan_path }}.
             Implement ONLY the approved plan. Follow its approved architecture and dependency decisions exactly.
             Do not add auth, payments, databases, external APIs, paid services, deployment changes, or unapproved dependencies/frameworks.
-            Add deterministic tests for changed behavior. Do not commit, push, merge, create a PR, or install tools. Stop after editing the implementation and tests.
+            Add deterministic tests for changed behavior. Provide or update .factory/test.sh so CI can install only the project's required test tooling and run those tests deterministically. Keep that script project-specific and non-interactive. Do not commit, push, merge, create a PR, or install tools outside the repository. Stop after editing the implementation and tests.
 
       - name: Ensure Codex made changes
         run: |
@@ -90,20 +90,13 @@ jobs:
           git commit -m "Preserve Codex implementation pending validation"
           git push origin HEAD:"${{ inputs.branch }}"
 
-      - name: Set up Node.js for deterministic validation
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24
-
       - name: Run deterministic validation
+        shell: bash
         run: |
           set -euo pipefail
-          test -f package.json || { echo "Implementation must provide a deterministic Node test harness for this factory version." >&2; exit 1; }
-          if [ -f package-lock.json ]; then npm ci; else npm install; fi
-          if npm ls @playwright/test --depth=0 >/dev/null 2>&1; then
-            npx playwright install chromium
-          fi
-          npm test
+          test -f .factory/test.sh || { echo "Implementation must provide .factory/test.sh as its deterministic test contract." >&2; exit 1; }
+          chmod +x .factory/test.sh
+          ./.factory/test.sh
 
       - name: Advance plan status
         env:
