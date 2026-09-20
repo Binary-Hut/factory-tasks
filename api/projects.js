@@ -9,6 +9,7 @@ const COPY_FILES = [
   ['.ai/roles/PLANNER.md', '.ai/roles/PLANNER.md'],
   ['.ai/roles/DEVELOPER.md', '.ai/roles/DEVELOPER.md'],
   ['.ai/roles/REVIEWER.md', '.ai/roles/REVIEWER.md'],
+  ['.ai/roles/TESTER.md', '.ai/roles/TESTER.md'],
   ['.factory/workflows/test.yml', '.github/workflows/test.yml'],
   ['.factory/workflows/branch-collision-guard.yml', '.github/workflows/branch-collision-guard.yml'],
   ['.factory/workflows/codex-feature-developer.yml', '.github/workflows/codex-feature-developer.yml'],
@@ -58,6 +59,32 @@ async function sourceFile(path, token) {
   );
   if (!data.content) throw new Error(`Factory source file is unavailable: ${path}`);
   return String(data.content).replace(/\n/g, '');
+}
+
+async function registerProject(project, repository, token) {
+  const path = '.factory/projects.json';
+  const data = await github(`https://api.github.com/repos/${SOURCE_REPO}/contents/${path}?ref=main`, token);
+  const registry = JSON.parse(Buffer.from(String(data.content || '').replace(/\n/g, ''), 'base64').toString('utf8'));
+  if ((registry.projects || []).some((item) => item.repository === repository)) return;
+  registry.projects.push({
+    id: project.slug,
+    name: project.name,
+    repository,
+    project_type: project.project_type,
+    lifecycle_status: 'active',
+    deployment: { provider: project.deployment || 'none', live_url: null },
+    agents: project.agents,
+    ai_budget: project.ai_budget
+  });
+  await github(`https://api.github.com/repos/${SOURCE_REPO}/contents/${path}`, token, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      message: `Register factory project: ${project.name}`,
+      content: Buffer.from(JSON.stringify(registry, null, 2) + '\n').toString('base64'),
+      sha: data.sha,
+      branch: 'main'
+    })
+  });
 }
 
 function base64(text) {
@@ -154,12 +181,14 @@ module.exports = async function handler(req, res) {
       await createFile(organization, project.slug, destinationPath, content, session.token);
     }
 
+    await registerProject(project, createdRepo.full_name, session.token);
+
     return res.status(201).json({
       ok: true,
       project,
       repository: createdRepo.full_name,
       repository_url: createdRepo.html_url,
-      next: 'Repository created with factory workflows. Planning can begin; no AI agent was started automatically.'
+      next: 'Repository created, registered in Factory, and configured with factory workflows. Planning can begin; no AI agent was started automatically.'
     });
   } catch (error) {
     const validationDetails = Array.isArray(error.data?.errors)
