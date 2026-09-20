@@ -215,3 +215,15 @@ test('merge gate requires successful deterministic GitHub Actions for the PR hea
   assert.match(source, /run\.status !== 'completed' \|\| run\.conclusion !== 'success'/);
   assert.match(source, /combined\.state === 'pending'/);
 });
+
+
+test('new project provisioning registers the repository and includes the Tester role', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const source = fs.readFileSync(path.resolve(__dirname, '../api/projects.js'), 'utf8');
+  const template = require('../.factory/project-template.json');
+  assert.match(source, /async function registerProject/);
+  assert.match(source, /await registerProject\(project, createdRepo\.full_name, session\.token\)/);
+  assert.match(source, /\.ai\/roles\/TESTER\.md/);
+  assert.ok(template.starter_files.copy_from_factory.includes('.ai/roles/TESTER.md'));
+});
