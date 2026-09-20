@@ -57,7 +57,12 @@ module.exports = async function handler(req, res) {
             const file = await github(`https://api.github.com/repos/${repository}/contents/${plan.path}?ref=${encodeURIComponent(branch.name)}`, session.token);
             const text = Buffer.from(file.content, 'base64').toString('utf8');
             const status = text.match(/^Status:\s*(.+)$/m)?.[1]?.trim() || 'UNKNOWN';
-            workspace = { branch: branch.name, plan_path: plan.path, status };
+            let pull_request = null;
+            try {
+              const prs = await github(`https://api.github.com/repos/${repository}/pulls?state=open&head=${encodeURIComponent(repository.split('/')[0] + ':' + branch.name)}`, session.token);
+              if (prs[0]) pull_request = { number: prs[0].number, url: prs[0].html_url };
+            } catch {}
+            workspace = { branch: branch.name, plan_path: plan.path, status, pull_request };
           }
         }
       } catch { workspace = null; }
