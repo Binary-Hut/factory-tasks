@@ -64,16 +64,37 @@ module.exports = async function handler(req, res) {
     const provider = deploymentCatalog.providers?.[project.deployment?.provider];
     if (!provider?.workflow) return res.status(409).json({ error: 'This project has no approved production deployment provider.' });
     const repo = await github(`https://api.github.com/repos/${repository}`, session.token);
-    await github(`https://api.github.com/repos/${repository}/actions/workflows/${provider.workflow}/dispatches`, session.token, {
-      method: 'POST',
+    const branch = await github(`https://api.github.com/repos/${repository}/branches/${encodeURIComponent(repo.default_branch)}`, session.token);
+    const requestPath = '.factory/deploy-request.json';
+    let current = null;
+    try {
+      current = await github(`https://api.github.com/repos/${repository}/contents/${requestPath}?ref=${encodeURIComponent(repo.default_branch)}`, session.token);
+    } catch (error) {
+      if (error.status !== 404) throw error;
+    }
+    const request = {
+      schema_version: 1,
+      provider: project.deployment.provider,
+      source_sha: branch.commit.sha,
+      requested_at: new Date().toISOString(),
+      requested_by: session.login
+    };
+    const update = {
+      message: `Approve production deployment for ${branch.commit.sha.slice(0, 12)}`,
+      content: Buffer.from(JSON.stringify(request, null, 2) + '\n').toString('base64'),
+      branch: repo.default_branch
+    };
+    if (current?.sha) update.sha = current.sha;
+    await github(`https://api.github.com/repos/${repository}/contents/${requestPath}`, session.token, {
+      method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ref: repo.default_branch })
+      body: JSON.stringify(update)
     });
     return res.status(202).json({
       ok: true,
       status: 'DEPLOYMENT_DISPATCHED',
       provider: project.deployment.provider,
-      next: 'Production deployment was explicitly requested. The deterministic workflow will verify the live response and will not retry automatically.'
+      next: 'Production deployment was recorded in GitHub and explicitly requested. The deterministic workflow will verify the live response and will not retry automatically.'
     });
   } catch (error) {
     return res.status(error.status || 502).json({ error: 'Could not start production deployment.', detail: error.message });
