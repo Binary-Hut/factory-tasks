@@ -431,10 +431,30 @@
             '<div class="item-meta" style="margin-top:8px">Planner: ' + escapeHtml(project.agents?.planner || "default") +
             ' · Developer: ' + escapeHtml(project.agents?.developer || "default") +
             ' · Reviewer: ' + escapeHtml(project.agents?.reviewer || "default") + '</div>' +
+            '<div class="toolbar" style="margin-top:8px"><label class="item-meta">Planner <select class="planner-setting" data-repo="' + escapeHtml(project.repository) + '">' +
+            '<option value="manual-claude"' + (project.agents?.planner === "manual-claude" ? " selected" : "") + '>Manual Claude</option>' +
+            '<option value="gemini"' + (project.agents?.planner === "gemini" ? " selected" : "") + '>Gemini</option></select></label>' +
+            '<button class="button save-agent-settings" type="button" data-repo="' + escapeHtml(project.repository) + '">Save agent settings</button></div>' +
             '<div class="work-list project-tasks" data-repo="' + escapeHtml(project.repository) + '" style="margin-top:10px"><div class="empty">Loading tasks…</div></div>';
           list.appendChild(item);
         });
         document.querySelectorAll(".project-tasks").forEach((container) => loadProjectTasks(container));
+        document.querySelectorAll(".save-agent-settings").forEach((button) => {
+          button.addEventListener("click", async () => {
+            const select = document.querySelector('.planner-setting[data-repo="' + CSS.escape(button.dataset.repo) + '"]');
+            button.disabled = true; button.textContent = "Saving…";
+            try {
+              const response = await fetch("/api/project-settings", { method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ repository: button.dataset.repo, planner: select.value }) });
+              const data = await response.json();
+              if (!response.ok) throw new Error(data.error || "Could not save agent settings.");
+              const project = factoryProjects.find((item) => item.repository === button.dataset.repo);
+              if (project) project.agents = data.agents;
+              button.textContent = "Saved";
+              setTimeout(() => { button.disabled = false; button.textContent = "Save agent settings"; }, 1200);
+            } catch (error) { button.disabled = false; button.textContent = "Save agent settings"; alert(error.message); }
+          });
+        });
         document.querySelectorAll(".project-task-btn").forEach((button) => {
           button.addEventListener("click", () => {
             const textarea = document.getElementById("task-text");
