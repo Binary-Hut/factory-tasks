@@ -1,5 +1,6 @@
 const bundledRegistry = require('../.factory/projects.json');
 const { readSession } = require('../lib/factory-auth');
+const agentCatalog = require('../.factory/agents.json');
 
 async function liveRegistry(req) {
   const session = readSession(req);
@@ -25,6 +26,7 @@ module.exports = async function handler(req, res) {
   const projects = Array.isArray(registry.projects) ? registry.projects : [];
   return res.status(200).json({
     schema_version: registry.schema_version || 1,
+    agent_catalog: agentCatalog,
     projects: projects.map((project) => ({
       id: project.id,
       name: project.name,
