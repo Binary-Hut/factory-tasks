@@ -143,3 +143,12 @@ test('Console exposes explicit project Planner settings', async ({ page }) => {
   expect(source).toContain('agentOptions("planner"');
   expect(source).toContain('agent_catalog');
 });
+
+
+test('Console exposes catalog-driven Developer and Reviewer settings', async ({ page }) => {
+  const source = require('node:fs').readFileSync(require('node:path').resolve(__dirname, '../console/index.html'), 'utf8');
+  expect(source).toContain('class="developer-setting"');
+  expect(source).toContain('class="reviewer-setting"');
+  expect(source).toContain('agentOptions("developer"');
+  expect(source).toContain('agentOptions("reviewer"');
+});
