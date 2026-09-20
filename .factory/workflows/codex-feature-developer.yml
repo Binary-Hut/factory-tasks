@@ -11,6 +11,10 @@ on:
         description: "Approved task plan file"
         required: true
         type: string
+      model:
+        description: "Catalog-approved OpenAI model"
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -69,7 +73,7 @@ jobs:
         uses: openai/codex-action@v1
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
-          model: gpt-5-mini
+          model: ${{ inputs.model }}
           effort: low
           permission-profile: ":workspace"
           prompt: |
