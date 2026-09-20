@@ -21,6 +21,11 @@ async function loadRegistry(token) {
   }
 }
 
+function configuredAgent(project, role) {
+  const id = project?.agents?.[role];
+  return (agentCatalog.roles?.[role]?.options || []).find((option) => option.id === id) || null;
+}
+
 async function requireReviewForHead(repository, prNumber, headSha, token) {
   const comments = await github(`https://api.github.com/repos/${repository}/issues/${prNumber}/comments?per_page=100`, token);
   const marker = `<!-- factory-reviewed-sha:${headSha} -->`;
@@ -131,7 +136,7 @@ module.exports = async function handler(req, res) {
   try {
     if (action === 'start-planning') {
       const project = (registry.projects || []).find((item) => item.repository === repository);
-      const planner = (agentCatalog.roles?.planner?.options || []).find((option) => option.id === project?.agents?.planner);
+      const planner = configuredAgent(project, 'planner');
       if (!planner || planner.kind !== 'ai' || !planner.workflow) return res.status(409).json({ error: 'This project is not configured for an automated Planner.' });
       const file = await github(`https://api.github.com/repos/${repository}/contents/${planPath}?ref=${encodeURIComponent(branch)}`, session.token);
       const text = Buffer.from(file.content, 'base64').toString('utf8');
@@ -194,7 +199,10 @@ module.exports = async function handler(req, res) {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: 'Authorize one review correction pass', content: Buffer.from(updated).toString('base64'), sha: file.sha, branch })
       });
-      await dispatchWithLock(repository, branch, planPath, 'correction', 'codex-feature-developer.yml', { branch, plan_path: planPath }, session.token);
+      const project = (registry.projects || []).find((item) => item.repository === repository);
+      const developer = configuredAgent(project, 'developer');
+      if (!developer?.workflow || !developer?.model) return res.status(409).json({ error: 'This project has no runnable Developer configuration.' });
+      await dispatchWithLock(repository, branch, planPath, 'correction', developer.workflow, { branch, plan_path: planPath, model: developer.model }, session.token);
       return res.status(202).json({ ok: true, status: 'CORRECTION_DISPATCHED', next: 'One explicitly approved Developer correction call was requested. Tests and independent re-review are still required.' });
     }
 
@@ -205,7 +213,10 @@ module.exports = async function handler(req, res) {
       if (pr.head.ref !== branch || pr.state !== 'open') return res.status(409).json({ error: 'The pull request does not match this active task branch.' });
       const labels = (await github(`https://api.github.com/repos/${repository}/issues/${prNumber}/labels`, session.token)).map((label) => label.name);
       if (!labels.includes('ai-review-paused')) return res.status(409).json({ error: 'The Reviewer is not paused after a technical failure.' });
-      await dispatchWithLock(repository, branch, planPath, 'review-retry', 'gemini-review.yml', { pr_number: String(prNumber) }, session.token);
+      const project = (registry.projects || []).find((item) => item.repository === repository);
+      const reviewer = configuredAgent(project, 'reviewer');
+      if (!reviewer?.workflow || !reviewer?.model) return res.status(409).json({ error: 'This project has no runnable Reviewer configuration.' });
+      await dispatchWithLock(repository, branch, planPath, 'review-retry', reviewer.workflow, { pr_number: String(prNumber), model: reviewer.model }, session.token);
       return res.status(202).json({ ok: true, status: 'REVIEW_RETRY_DISPATCHED', next: 'One explicitly approved Reviewer retry was requested. No further retry will happen automatically.' });
     }
 
@@ -217,7 +228,10 @@ module.exports = async function handler(req, res) {
       if (!text.includes('Status: READY_FOR_REVIEW')) return res.status(409).json({ error: 'Deterministic validation has not marked this task ready for review.' });
       const pr = await github(`https://api.github.com/repos/${repository}/pulls/${prNumber}`, session.token);
       if (pr.head.ref !== branch || pr.state !== 'open') return res.status(409).json({ error: 'The pull request does not match this active task branch.' });
-      await dispatchWithLock(repository, branch, planPath, 'review', 'gemini-review.yml', { pr_number: String(prNumber) }, session.token);
+      const project = (registry.projects || []).find((item) => item.repository === repository);
+      const reviewer = configuredAgent(project, 'reviewer');
+      if (!reviewer?.workflow || !reviewer?.model) return res.status(409).json({ error: 'This project has no runnable Reviewer configuration.' });
+      await dispatchWithLock(repository, branch, planPath, 'review', reviewer.workflow, { pr_number: String(prNumber), model: reviewer.model }, session.token);
       return res.status(202).json({ ok: true, status: 'REVIEW_DISPATCHED', next: 'One independent Reviewer AI run was requested. Automatic retry remains disabled.' });
     }
 
@@ -230,7 +244,10 @@ module.exports = async function handler(req, res) {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: 'Authorize one explicit Developer retry', content: Buffer.from(updated).toString('base64'), sha: file.sha, branch })
       });
-      await dispatchWithLock(repository, branch, planPath, 'development-retry', 'codex-feature-developer.yml', { branch, plan_path: planPath }, session.token);
+      const project = (registry.projects || []).find((item) => item.repository === repository);
+      const developer = configuredAgent(project, 'developer');
+      if (!developer?.workflow || !developer?.model) return res.status(409).json({ error: 'This project has no runnable Developer configuration.' });
+      await dispatchWithLock(repository, branch, planPath, 'development-retry', developer.workflow, { branch, plan_path: planPath, model: developer.model }, session.token);
       return res.status(202).json({ ok: true, status: 'RETRY_DISPATCHED', next: 'One explicitly approved Developer retry was requested. No further retry will happen automatically.' });
     }
 
@@ -238,7 +255,10 @@ module.exports = async function handler(req, res) {
       const file = await github(`https://api.github.com/repos/${repository}/contents/${planPath}?ref=${encodeURIComponent(branch)}`, session.token);
       const text = Buffer.from(file.content, 'base64').toString('utf8');
       if (!text.includes('Status: READY_FOR_DEVELOPMENT')) return res.status(409).json({ error: 'This task is not approved for development.' });
-      await dispatchWithLock(repository, branch, planPath, 'development', 'codex-feature-developer.yml', { branch, plan_path: planPath }, session.token);
+      const project = (registry.projects || []).find((item) => item.repository === repository);
+      const developer = configuredAgent(project, 'developer');
+      if (!developer?.workflow || !developer?.model) return res.status(409).json({ error: 'This project has no runnable Developer configuration.' });
+      await dispatchWithLock(repository, branch, planPath, 'development', developer.workflow, { branch, plan_path: planPath, model: developer.model }, session.token);
       return res.status(202).json({ ok: true, status: 'DEVELOPMENT_DISPATCHED', next: 'One approved Developer AI run was requested. Automatic retry remains disabled.' });
     }
 
