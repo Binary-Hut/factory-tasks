@@ -1,0 +1,82 @@
+name: Gemini Task Planner
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Task branch to plan"
+        required: true
+        type: string
+      plan_path:
+        description: "Task plan file"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: gemini-task-planner-${{ inputs.branch }}
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check Gemini API key
+        run: |
+          if [ -z "${{ secrets.GEMINI_API_KEY }}" ]; then
+            echo "GEMINI_API_KEY is not configured for this repository." >&2
+            exit 1
+          fi
+
+      - name: Check out task branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch }}
+          fetch-depth: 0
+
+      - name: Verify task needs planning
+        run: |
+          test -f "${{ inputs.plan_path }}" || { echo "Plan file not found." >&2; exit 1; }
+          grep -q "Status: NEEDS_PLANNING" "${{ inputs.plan_path }}" || {
+            echo "Task must be NEEDS_PLANNING." >&2
+            exit 1
+          }
+
+      - name: Run Gemini Planner
+        id: gemini
+        env:
+          GEMINI_CLI_TRUST_WORKSPACE: "true"
+        uses: google-github-actions/run-gemini-cli@v0
+        with:
+          gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
+          gemini_model: gemini-3.1-flash-lite
+          prompt: |
+            You are the Planner for ${{ github.repository }}.
+            Read AI_POLICY.md, AGENTS.md, PRODUCT.md, ARCHITECTURE.md, ROADMAP.md, .ai/roles/PLANNER.md, and ${{ inputs.plan_path }}.
+            Produce a complete implementation plan for ONLY the owner's task request.
+            Do not implement code. Do not expand product scope. Respect architecture, security, dependency, deployment, and paid-AI approval rules.
+            Return only the complete Markdown contents that should replace the task plan.
+            The document MUST contain a line exactly: Status: READY_FOR_APPROVAL
+            Preserve the owner's request and include: scope, non-goals, files/areas likely affected, implementation steps, deterministic validation, risks/recovery, and acceptance criteria.
+
+      - name: Validate and save proposed plan
+        env:
+          PLAN_PATH: ${{ inputs.plan_path }}
+          PLAN_BODY: ${{ steps.gemini.outputs.summary }}
+        run: |
+          printf "%s\n" "$PLAN_BODY" > "$PLAN_PATH"
+          grep -q "^Status: READY_FOR_APPROVAL$" "$PLAN_PATH" || {
+            echo "Planner output did not produce an approval-ready plan." >&2
+            exit 1
+          }
+
+      - name: Commit approval-ready plan
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "${{ inputs.plan_path }}"
+          git commit -m "Prepare task plan for owner approval"
+          git push origin HEAD:"${{ inputs.branch }}"
