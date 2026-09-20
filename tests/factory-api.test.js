@@ -253,3 +253,16 @@ test('project template provisions an explicitly dispatched Planner workflow', ()
   assert.match(workflow, /workflow_dispatch:/);
   assert.match(workflow, /Status: READY_FOR_APPROVAL/);
 });
+
+
+test('project agent settings are owner-authenticated, same-origin, and Planner allowlisted', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const source = fs.readFileSync(path.resolve(__dirname, '../api/project-settings.js'), 'utf8');
+  const registry = fs.readFileSync(path.resolve(__dirname, '../api/project-registry.js'), 'utf8');
+  assert.match(source, /sameOrigin\(req\)/);
+  assert.match(source, /session\.login\.toLowerCase\(\) !== config\.owner\.toLowerCase\(\)/);
+  assert.match(source, /ALLOWED_PLANNERS = new Set\(\['manual-claude', 'gemini'\]\)/);
+  assert.match(source, /sha: file\.sha/);
+  assert.match(registry, /async function liveRegistry/);
+});
