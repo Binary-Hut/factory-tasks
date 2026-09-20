@@ -7,8 +7,26 @@ async function github(url, token, options = {}) {
     headers: { Accept: 'application/vnd.github+json', Authorization: `Bearer ${token}`, 'X-GitHub-Api-Version': '2026-03-10', ...(options.headers || {}) }
   });
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.message || `GitHub returned ${response.status}`);
+  if (!response.ok) { const error = new Error(data.message || `GitHub returned ${response.status}`); error.status = response.status; throw error; }
   return data;
+}
+
+async function acquireDispatchLock(repository, branch, planPath, stage, token) {
+  const safe = branch.replace(/[^a-zA-Z0-9._-]+/g, '-');
+  const path = `.ai/locks/${safe}-${stage}.json`;
+  try {
+    await github(`https://api.github.com/repos/${repository}/contents/${path}?ref=${encodeURIComponent(branch)}`, token);
+    const error = new Error('This AI stage has already been dispatched. Wait for its current run to finish before taking another action.');
+    error.status = 409; throw error;
+  } catch (error) {
+    if (error.status === 409) throw error;
+    if (error.message && !/404|Not Found/i.test(error.message)) throw error;
+  }
+  await github(`https://api.github.com/repos/${repository}/contents/${path}`, token, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message: `Lock ${stage} AI dispatch`, content: Buffer.from(JSON.stringify({ stage, branch, plan_path: planPath, created_at: new Date().toISOString() }, null, 2)).toString('base64'), branch })
+  });
+  return path;
 }
 
 function sameOrigin(req) {
@@ -65,6 +83,7 @@ module.exports = async function handler(req, res) {
       const file = await github(`https://api.github.com/repos/${repository}/contents/${planPath}?ref=${encodeURIComponent(branch)}`, session.token);
       const text = Buffer.from(file.content, 'base64').toString('utf8');
       if (!text.includes('Status: READY_FOR_REVIEW')) return res.status(409).json({ error: 'This task is not in the review stage.' });
+      await acquireDispatchLock(repository, branch, planPath, 'correction', session.token);
       const updated = text.replace('Status: READY_FOR_REVIEW', 'Status: READY_FOR_CORRECTION');
       await github(`https://api.github.com/repos/${repository}/contents/${planPath}`, session.token, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
@@ -84,6 +103,7 @@ module.exports = async function handler(req, res) {
       if (pr.head.ref !== branch || pr.state !== 'open') return res.status(409).json({ error: 'The pull request does not match this active task branch.' });
       const labels = (await github(`https://api.github.com/repos/${repository}/issues/${prNumber}/labels`, session.token)).map((label) => label.name);
       if (!labels.includes('ai-review-paused')) return res.status(409).json({ error: 'The Reviewer is not paused after a technical failure.' });
+      await acquireDispatchLock(repository, branch, planPath, 'review-retry', session.token);
       await github(`https://api.github.com/repos/${repository}/actions/workflows/gemini-review.yml/dispatches`, session.token, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ref: branch, inputs: { pr_number: String(prNumber) } })
@@ -99,6 +119,7 @@ module.exports = async function handler(req, res) {
       if (!text.includes('Status: READY_FOR_REVIEW')) return res.status(409).json({ error: 'Deterministic validation has not marked this task ready for review.' });
       const pr = await github(`https://api.github.com/repos/${repository}/pulls/${prNumber}`, session.token);
       if (pr.head.ref !== branch || pr.state !== 'open') return res.status(409).json({ error: 'The pull request does not match this active task branch.' });
+      await acquireDispatchLock(repository, branch, planPath, 'review', session.token);
       await github(`https://api.github.com/repos/${repository}/actions/workflows/gemini-review.yml/dispatches`, session.token, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ref: branch, inputs: { pr_number: String(prNumber) } })
@@ -110,6 +131,7 @@ module.exports = async function handler(req, res) {
       const file = await github(`https://api.github.com/repos/${repository}/contents/${planPath}?ref=${encodeURIComponent(branch)}`, session.token);
       const text = Buffer.from(file.content, 'base64').toString('utf8');
       if (!text.includes('Status: PAUSED_AI_FAILURE')) return res.status(409).json({ error: 'This task is not paused after an AI failure.' });
+      await acquireDispatchLock(repository, branch, planPath, 'development-retry', session.token);
       const updated = text.replace('Status: PAUSED_AI_FAILURE', 'Status: READY_FOR_RETRY');
       await github(`https://api.github.com/repos/${repository}/contents/${planPath}`, session.token, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
@@ -126,6 +148,7 @@ module.exports = async function handler(req, res) {
       const file = await github(`https://api.github.com/repos/${repository}/contents/${planPath}?ref=${encodeURIComponent(branch)}`, session.token);
       const text = Buffer.from(file.content, 'base64').toString('utf8');
       if (!text.includes('Status: READY_FOR_DEVELOPMENT')) return res.status(409).json({ error: 'This task is not approved for development.' });
+      await acquireDispatchLock(repository, branch, planPath, 'development', session.token);
       await github(`https://api.github.com/repos/${repository}/actions/workflows/codex-feature-developer.yml/dispatches`, session.token, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ref: branch, inputs: { branch, plan_path: planPath } })
