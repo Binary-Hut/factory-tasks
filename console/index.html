@@ -429,9 +429,11 @@
             deployment + '<a class="button" href="' + repoUrl + '" target="_blank" rel="noreferrer">Repository</a></div></div>' +
             '<div class="item-meta" style="margin-top:8px">Planner: ' + escapeHtml(project.agents?.planner || "default") +
             ' · Developer: ' + escapeHtml(project.agents?.developer || "default") +
-            ' · Reviewer: ' + escapeHtml(project.agents?.reviewer || "default") + '</div>';
+            ' · Reviewer: ' + escapeHtml(project.agents?.reviewer || "default") + '</div>' +
+            '<div class="work-list project-tasks" data-repo="' + escapeHtml(project.repository) + '" style="margin-top:10px"><div class="empty">Loading tasks…</div></div>';
           list.appendChild(item);
         });
+        document.querySelectorAll(".project-tasks").forEach((container) => loadProjectTasks(container));
         document.querySelectorAll(".project-task-btn").forEach((button) => {
           button.addEventListener("click", () => {
             const textarea = document.getElementById("task-text");
@@ -443,6 +445,27 @@
         });
       } catch {
         list.innerHTML = '<div class="empty">Project registry could not be loaded.</div>';
+      }
+    }
+
+    async function loadProjectTasks(container) {
+      const repository = container.dataset.repo;
+      try {
+        const response = await fetch("/api/project-tasks?repository=" + encodeURIComponent(repository));
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Could not load tasks.");
+        if (!data.tasks.length) {
+          container.innerHTML = '<div class="empty">No open tasks.</div>';
+          return;
+        }
+        container.innerHTML = data.tasks.slice(0, 5).map((task) => {
+          const labels = task.labels.length ? task.labels.join(", ") : "Awaiting planning";
+          return '<a class="item" href="' + task.url + '" target="_blank" rel="noreferrer">' +
+            '<div class="run-row"><div><div class="item-title">#' + task.number + ' ' + escapeHtml(task.title) + '</div>' +
+            '<div class="item-meta">' + escapeHtml(labels) + '</div></div><span class="badge">Open</span></div></a>';
+        }).join("");
+      } catch {
+        container.innerHTML = '<div class="empty">Sign in to view this project\'s task lifecycle.</div>';
       }
     }
 
