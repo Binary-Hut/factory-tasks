@@ -11,6 +11,23 @@ async function github(url, token, options = {}) {
   return data;
 }
 
+async function requireSuccessfulActions(repository, headSha, token) {
+  const runs = await github(`https://api.github.com/repos/${repository}/actions/runs?head_sha=${encodeURIComponent(headSha)}&per_page=100`, token);
+  const relevant = (runs.workflow_runs || []).filter((run) => ['Run Tests', 'Branch Collision Guard'].includes(run.name));
+  const latest = new Map();
+  for (const run of relevant) {
+    const previous = latest.get(run.name);
+    if (!previous || new Date(run.created_at) > new Date(previous.created_at)) latest.set(run.name, run);
+  }
+  for (const name of ['Run Tests', 'Branch Collision Guard']) {
+    const run = latest.get(name);
+    if (!run) { const error = new Error(`${name} has not run for the current pull-request commit.`); error.status = 409; throw error; }
+    if (run.status !== 'completed' || run.conclusion !== 'success') {
+      const error = new Error(`${name} must complete successfully before merge.`); error.status = 409; throw error;
+    }
+  }
+}
+
 async function acquireDispatchLock(repository, branch, planPath, stage, token) {
   const safe = branch.replace(/[^a-zA-Z0-9._-]+/g, '-');
   const plan = await github(`https://api.github.com/repos/${repository}/contents/${planPath}?ref=${encodeURIComponent(branch)}`, token);
@@ -90,8 +107,9 @@ module.exports = async function handler(req, res) {
       if (pr.head.ref !== branch || pr.state !== 'open') return res.status(409).json({ error: 'The pull request does not match this active task branch.' });
       const labels = (await github(`https://api.github.com/repos/${repository}/issues/${prNumber}/labels`, session.token)).map((label) => label.name);
       if (!labels.includes('ai-review-ready')) return res.status(409).json({ error: 'Independent review has not approved this pull request.' });
+      await requireSuccessfulActions(repository, pr.head.sha, session.token);
       const combined = await github(`https://api.github.com/repos/${repository}/commits/${pr.head.sha}/status`, session.token);
-      if (combined.state === 'failure' || combined.state === 'error') return res.status(409).json({ error: 'Required checks are not passing.' });
+      if (combined.state === 'failure' || combined.state === 'error' || combined.state === 'pending') return res.status(409).json({ error: 'A commit status is not passing yet.' });
       const merged = await github(`https://api.github.com/repos/${repository}/pulls/${prNumber}/merge`, session.token, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ merge_method: 'squash' })
