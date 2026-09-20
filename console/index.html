@@ -470,6 +470,8 @@
           const develop = task.workspace?.status === "READY_FOR_DEVELOPMENT"
             ? '<button class="start-dev-btn" type="button" data-repo="' + escapeHtml(repository) + '" data-branch="' + escapeHtml(task.workspace.branch) + '" data-plan="' + escapeHtml(task.workspace.plan_path) + '">Start development (1 AI call)</button>'
             : '';
+          const prepareReview = task.workspace?.status === "READY_FOR_REVIEW" && !task.workspace?.pull_request
+            ? '<button class="prepare-review-btn" type="button" data-repo="' + escapeHtml(repository) + '" data-branch="' + escapeHtml(task.workspace.branch) + '" data-plan="' + escapeHtml(task.workspace.plan_path) + '">Prepare review (no AI)</button>' : '';
           const review = task.workspace?.status === "READY_FOR_REVIEW" && task.workspace?.pull_request && task.workspace.pull_request.review !== "READY"
             ? '<button class="start-review-btn" type="button" data-repo="' + escapeHtml(repository) + '" data-branch="' + escapeHtml(task.workspace.branch) + '" data-plan="' + escapeHtml(task.workspace.plan_path) + '" data-pr="' + task.workspace.pull_request.number + '">Start review (1 AI call)</button>'
             : '';
@@ -487,7 +489,7 @@
           const reviewState = task.workspace?.pull_request?.review && task.workspace.pull_request.review !== "NOT_REVIEWED"
             ? '<div class="item-meta">Review: ' + escapeHtml(task.workspace.pull_request.review.replaceAll("_", " ")) + '</div>' : '';
           return '<div class="item"><div class="run-row"><div><a class="item-title" href="' + task.url + '" target="_blank" rel="noreferrer">#' + task.number + ' ' + escapeHtml(task.title) + '</a>' +
-            '<div class="item-meta">' + escapeHtml(labels) + '</div></div><span class="badge">Open</span></div>' + reviewState + approve + develop + retry + review + correction + reviewRetry + merge + '</div>';
+            '<div class="item-meta">' + escapeHtml(labels) + '</div></div><span class="badge">Open</span></div>' + reviewState + approve + develop + retry + prepareReview + review + correction + reviewRetry + merge + '</div>';
         }).join("");
         container.querySelectorAll(".correction-btn").forEach((button) => {
           button.addEventListener("click", async () => {
@@ -540,6 +542,18 @@
               button.textContent = "Merged";
               setTimeout(() => loadProjectTasks(container), 1500);
             } catch (error) { button.disabled = false; button.textContent = "Merge approved change"; alert(error.message); }
+          });
+        });
+        container.querySelectorAll(".prepare-review-btn").forEach((button) => {
+          button.addEventListener("click", async () => {
+            button.disabled = true; button.textContent = "Preparing…";
+            try {
+              const response = await fetch("/api/task-actions", { method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "prepare-review", repository: button.dataset.repo, branch: button.dataset.branch, plan_path: button.dataset.plan }) });
+              const data = await response.json();
+              if (!response.ok) throw new Error(data.error || "Could not prepare review.");
+              await loadProjectTasks(button.dataset.repo);
+            } catch (error) { button.disabled = false; button.textContent = "Prepare review (no AI)"; alert(error.message); }
           });
         });
         container.querySelectorAll(".start-review-btn").forEach((button) => {
