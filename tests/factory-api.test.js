@@ -287,3 +287,14 @@ test('merge approval is bound to the exact PR head reviewed by the independent r
   assert.match(actions, /comment\.user\?\.login === 'github-actions\[bot\]'/);
   assert.match(tasks, /if \(!currentReview\) review = 'STALE'/);
 });
+
+
+test('project provisioning rejects cross-origin browser requests before mutation', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const source = fs.readFileSync(path.resolve(__dirname, '../api/projects.js'), 'utf8');
+  assert.match(source, /function sameOrigin\(req\)/);
+  assert.match(source, /sec-fetch-site/);
+  assert.match(source, /if \(!sameOrigin\(req\)\)/);
+  assert.match(source, /Cross-origin project provisioning is not allowed/);
+});
