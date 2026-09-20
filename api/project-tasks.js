@@ -44,11 +44,11 @@ module.exports = async function handler(req, res) {
 
   try {
     const issues = await github(`https://api.github.com/repos/${repository}/issues?state=open&per_page=30&sort=updated&direction=desc`, session.token);
+    const branches = await github(`https://api.github.com/repos/${repository}/branches?per_page=100`, session.token);
     const tasks = await Promise.all(issues.filter((item) => !item.pull_request).map(async (item) => {
       const prefix = `task/${item.number}-`;
       let workspace = null;
       try {
-        const branches = await github(`https://api.github.com/repos/${repository}/branches?per_page=100`, session.token);
         const branch = branches.find((entry) => entry.name.startsWith(prefix));
         if (branch) {
           const tree = await github(`https://api.github.com/repos/${repository}/git/trees/${branch.commit.sha}?recursive=1`, session.token);
@@ -69,7 +69,10 @@ module.exports = async function handler(req, res) {
                 pull_request = { number: prs[0].number, url: prs[0].html_url, review, mergeable: prs[0].mergeable };
               }
             } catch {}
-            workspace = { branch: branch.name, plan_path: plan.path, status, pull_request };
+            const recovery = status === 'PAUSED_AI_FAILURE' ? { kind: 'AI_FAILURE', needs_owner_retry: true, message: 'AI stage paused. No automatic paid retry was made.' }
+              : status.includes('PAUSED') || status.includes('FAILED') ? { kind: 'PAUSED', needs_owner_retry: false, message: 'Task paused for deterministic diagnosis before any paid retry.' }
+              : null;
+            workspace = { branch: branch.name, plan_path: plan.path, status, pull_request, recovery };
           }
         }
       } catch { workspace = null; }
