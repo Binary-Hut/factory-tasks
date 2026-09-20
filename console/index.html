@@ -479,7 +479,7 @@
           const reviewState = task.workspace?.pull_request?.review && task.workspace.pull_request.review !== "NOT_REVIEWED"
             ? '<div class="item-meta">Review: ' + escapeHtml(task.workspace.pull_request.review.replaceAll("_", " ")) + '</div>' : '';
           return '<div class="item"><div class="run-row"><div><a class="item-title" href="' + task.url + '" target="_blank" rel="noreferrer">#' + task.number + ' ' + escapeHtml(task.title) + '</a>' +
-            '<div class="item-meta">' + escapeHtml(labels) + '</div></div><span class="badge">Open</span></div>' + approve + '</div>';
+            '<div class="item-meta">' + escapeHtml(labels) + '</div></div><span class="badge">Open</span></div>' + reviewState + approve + develop + review + merge + '</div>';
         }).join("");
         container.querySelectorAll(".merge-task-btn").forEach((button) => {
           button.addEventListener("click", async () => {
