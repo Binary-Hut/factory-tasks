@@ -1,9 +1,25 @@
-const registry = require('../.factory/projects.json');
+const bundledRegistry = require('../.factory/projects.json');
+const { readSession } = require('../lib/factory-auth');
+
+async function liveRegistry(req) {
+  const session = readSession(req);
+  const headers = { Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2026-03-10' };
+  if (session?.token) headers.Authorization = `Bearer ${session.token}`;
+  const response = await fetch('https://api.github.com/repos/Binary-Hut/factory-tasks/contents/.factory/projects.json?ref=main', { headers });
+  if (!response.ok) throw new Error('Live registry unavailable');
+  const data = await response.json();
+  return JSON.parse(Buffer.from(String(data.content || '').replace(/\n/g, ''), 'base64').toString('utf8'));
+}
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'GET') {
     res.setHeader('Allow', 'GET');
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  let registry = bundledRegistry;
+  try { registry = await liveRegistry(req); } catch (_) {
+    // The bundled registry keeps the Console usable during a temporary GitHub API failure.
   }
 
   const projects = Array.isArray(registry.projects) ? registry.projects : [];
