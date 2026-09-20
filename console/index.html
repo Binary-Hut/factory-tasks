@@ -355,9 +355,10 @@
         <form id="new-task-form">
           <label for="task-text" class="muted">Describe what you want in plain English.</label>
           <textarea id="task-text" placeholder="Example: Add a dark mode button to the app." required></textarea>
-          <button class="button primary" type="submit">Create task</button>
+          <button class="button primary" id="create-task-btn" type="submit">Create task</button>
+          <div class="result" id="task-result"></div>
         </form>
-        <p class="footer-note">For this first version, the final confirmation opens in GitHub. Later versions will hide GitHub completely.</p>
+        <p class="footer-note">Tasks are created securely in the selected project. Creating a task does not start a paid AI agent.</p>
       </article>
 
       <article class="panel">
@@ -718,26 +719,45 @@
       }
     });
 
-    document.getElementById("new-task-form").addEventListener("submit", (event) => {
+    document.getElementById("new-task-form").addEventListener("submit", async (event) => {
       event.preventDefault();
-      const text = document.getElementById("task-text").value.trim();
+      const textarea = document.getElementById("task-text");
+      const text = textarea.value.trim();
+      const repository = textarea.dataset.repository || "";
+      const result = document.getElementById("task-result");
+      const button = document.getElementById("create-task-btn");
+      if (!repository) {
+        result.textContent = "Choose a project above, then click New feature / fix.";
+        result.style.display = "block";
+        return;
+      }
       if (!text) return;
 
-      const title = text.length > 80 ? text.slice(0, 77) + "…" : text;
-      const body = [
-        "## Request",
-        "",
-        text,
-        "",
-        "## Factory instruction",
-        "",
-        "Plan this as a small, testable task and follow AI_POLICY.md, AGENTS.md, and the factory workflow."
-      ].join("\n");
-
-      const url = "https://github.com/" + REPO + "/issues/new?title=" +
-        encodeURIComponent(title) + "&body=" + encodeURIComponent(body);
-
-      window.open(url, "_blank", "noopener,noreferrer");
+      button.disabled = true;
+      button.textContent = "Creating…";
+      try {
+        const response = await fetch("/api/tasks", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ repository, request: text })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Task creation failed.");
+        result.innerHTML = 'Task created safely. <a href="' + data.issue_url + '" target="_blank" rel="noreferrer">Open task #' + data.issue_number + '</a>. No paid AI call was started.';
+        result.style.background = "#eef7f1";
+        result.style.color = "#17643a";
+        result.style.display = "block";
+        event.target.reset();
+        delete textarea.dataset.repository;
+      } catch (error) {
+        result.textContent = error.message;
+        result.style.background = "#fdeaea";
+        result.style.color = "#a82c2c";
+        result.style.display = "block";
+      } finally {
+        button.disabled = false;
+        button.textContent = "Create task";
+      }
     });
 
     loadConsole();
