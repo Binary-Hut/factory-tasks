@@ -97,7 +97,7 @@ module.exports = async function handler(req, res) {
   const action = String(body.action || '').trim();
   if (!(registry.projects || []).some((p) => p.repository === repository)) return res.status(400).json({ error: 'Choose a registered factory project.' });
   if (!/^task\/[a-zA-Z0-9._/-]+$/.test(branch) || !/^\.ai\/tasks\/[a-zA-Z0-9._/-]+\.md$/.test(planPath)) return res.status(400).json({ error: 'Invalid task workspace.' });
-  if (!['approve-development', 'start-development', 'retry-development', 'start-review', 'retry-review', 'start-correction', 'merge'].includes(action)) return res.status(400).json({ error: 'Unsupported lifecycle action.' });
+  if (!['approve-development', 'start-development', 'retry-development', 'prepare-review', 'start-review', 'retry-review', 'start-correction', 'merge'].includes(action)) return res.status(400).json({ error: 'Unsupported lifecycle action.' });
 
   try {
     if (action === 'merge') {
@@ -116,6 +116,26 @@ module.exports = async function handler(req, res) {
       });
       if (!merged.merged) return res.status(409).json({ error: merged.message || 'GitHub did not merge this pull request.' });
       return res.status(200).json({ ok: true, status: 'MERGED', sha: merged.sha, next: 'Code merged. Deployment remains a separate explicit stage.' });
+    }
+
+    if (action === 'prepare-review') {
+      const file = await github(`https://api.github.com/repos/${repository}/contents/${planPath}?ref=${encodeURIComponent(branch)}`, session.token);
+      const text = Buffer.from(file.content, 'base64').toString('utf8');
+      if (!text.includes('Status: READY_FOR_REVIEW')) return res.status(409).json({ error: 'Deterministic validation has not marked this task ready for review.' });
+      const repo = await github(`https://api.github.com/repos/${repository}`, session.token);
+      const owner = repository.split('/')[0];
+      const existing = await github(`https://api.github.com/repos/${repository}/pulls?state=open&head=${encodeURIComponent(owner + ':' + branch)}`, session.token);
+      if (existing[0]) return res.status(200).json({ ok: true, status: 'REVIEW_PR_READY', pr_number: existing[0].number, url: existing[0].html_url, next: 'Existing pull request is ready for independent review.' });
+      const issueNumber = Number(branch.match(/^task\/(\d+)-/)?.[1]);
+      let title = `Factory task #${issueNumber || ''}`.trim();
+      if (issueNumber) {
+        try { const issue = await github(`https://api.github.com/repos/${repository}/issues/${issueNumber}`, session.token); title = issue.title || title; } catch {}
+      }
+      const created = await github(`https://api.github.com/repos/${repository}/pulls`, session.token, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, head: branch, base: repo.default_branch, body: `Factory-generated pull request for the validated task workspace.\n\n${issueNumber ? `Closes #${issueNumber}\n\n` : ''}Independent review and deterministic checks are required before merge.` })
+      });
+      return res.status(201).json({ ok: true, status: 'REVIEW_PR_CREATED', pr_number: created.number, url: created.html_url, next: 'Pull request created. Independent review has not started yet.' });
     }
 
     if (action === 'start-correction') {
