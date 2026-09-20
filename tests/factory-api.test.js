@@ -252,8 +252,10 @@ test('project template provisions an explicitly dispatched Planner workflow', ()
   assert.match(source, /agentCatalog\.roles\?\.planner/);
   assert.match(source, /planner\.workflow/);
   assert.match(source, /model: planner\.model/);
+  assert.match(source, /async function loadRegistry/);
   assert.match(workflow, /workflow_dispatch:/);
   assert.match(workflow, /Status: READY_FOR_APPROVAL/);
+  assert.match(workflow, /gemini_model: \$\{\{ inputs\.model \}\}/);
 });
 
 
