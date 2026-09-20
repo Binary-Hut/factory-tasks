@@ -631,7 +631,7 @@
         });
         container.querySelectorAll(".start-plan-btn").forEach((button) => {
           button.addEventListener("click", async () => {
-            if (!window.confirm("Start the Gemini Planner? This uses one AI call. It will prepare a plan only; development will still require your separate approval.")) return;
+            if (!window.confirm("Start the configured Planner? This uses one AI call. It will prepare a plan only; development will still require your separate approval.")) return;
             button.disabled = true; button.textContent = "Starting planning…";
             try {
               const response = await fetch("/api/task-actions", { method: "POST", headers: { "Content-Type": "application/json" },
