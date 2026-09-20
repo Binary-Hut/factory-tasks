@@ -2,6 +2,10 @@ name: Deploy Production
 
 on:
   workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - '.factory/deploy-request.json'
 
 permissions:
   contents: read

@@ -363,11 +363,13 @@ test('production deployment is an authenticated explicit provider dispatch', () 
   const workflow = fs.readFileSync(path.resolve(__dirname, '../.factory/workflows/vercel-production.yml'), 'utf8');
   assert.match(endpoint, /sameOrigin\(req\)/);
   assert.match(endpoint, /deploymentCatalog\.providers/);
-  assert.match(endpoint, /actions\/workflows\/\$\{provider\.workflow\}\/dispatches/);
-  assert.match(endpoint, /repo\.default_branch/);
+  assert.match(endpoint, /\.factory\/deploy-request\.json/);
+  assert.match(endpoint, /source_sha: branch\.commit\.sha/);
+  assert.match(endpoint, /requested_by: session\.login/);
   assert.match(workflow, /workflow_dispatch:/);
   assert.match(workflow, /VERCEL_TOKEN/);
   assert.match(workflow, /vercel deploy --prod/);
   assert.match(workflow, /verify-production\.sh/);
-  assert.doesNotMatch(workflow, /push:\s*\n/);
+  assert.match(workflow, /paths:\s*\n\s*- '\.factory\/deploy-request\.json'/);
+  assert.doesNotMatch(workflow, /push:\s*\n\s*branches: \[ main \]\s*\n\s*jobs:/);
 });

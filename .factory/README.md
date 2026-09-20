@@ -36,7 +36,9 @@ A trusted server-side action will then:
 
 Projects configured for Vercel receive `vercel-production.yml`. The Console
 dispatches it only after a separate owner confirmation; merging does not invoke
-this workflow. The workflow requires the organization secret `VERCEL_TOKEN`,
+this workflow. The approval is recorded in `.factory/deploy-request.json`, and
+only a change to that marker (or a manual dispatch) starts production. The
+workflow requires the organization secret `VERCEL_TOKEN`,
 uses the `VERCEL_SCOPE` organization variable when set (otherwise the current
 Musical Hut Vercel scope), pins the CLI, verifies HTTP success, and optionally
 runs a project-specific `.factory/verify-production.sh` contract.
