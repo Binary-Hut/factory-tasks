@@ -23,7 +23,7 @@ concurrency:
 
 jobs:
   review:
-     runs-on: ubuntu-latest
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - name: Check Gemini API key
@@ -37,10 +37,6 @@ jobs:
         id: pr
         env:
           GH_TOKEN: ${{ github.token }}
-          EVENT_NAME: ${{ github.event_name }}
-          EVENT_PR: ${{ github.event.pull_request.number }}
-          EVENT_HEAD: ${{ github.event.pull_request.head.ref }}
-          EVENT_BASE: ${{ github.event.pull_request.base.ref }}
           INPUT_PR: ${{ inputs.pr_number }}
           REPO: ${{ github.repository }}
         run: |
