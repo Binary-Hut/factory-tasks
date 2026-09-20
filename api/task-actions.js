@@ -29,6 +29,31 @@ async function acquireDispatchLock(repository, branch, planPath, stage, token) {
   return path;
 }
 
+async function releaseDispatchLock(repository, branch, path, token) {
+  try {
+    const file = await github(`https://api.github.com/repos/${repository}/contents/${path}?ref=${encodeURIComponent(branch)}`, token);
+    await github(`https://api.github.com/repos/${repository}/contents/${path}`, token, {
+      method: 'DELETE', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: 'Release failed AI dispatch lock', sha: file.sha, branch })
+    });
+  } catch (_) {
+    // Best effort only: retaining the lock is safer than risking a duplicate paid dispatch.
+  }
+}
+
+async function dispatchWithLock(repository, branch, planPath, stage, workflow, inputs, token) {
+  const lockPath = await acquireDispatchLock(repository, branch, planPath, stage, token);
+  try {
+    await github(`https://api.github.com/repos/${repository}/actions/workflows/${workflow}/dispatches`, token, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ref: branch, inputs })
+    });
+  } catch (error) {
+    await releaseDispatchLock(repository, branch, lockPath, token);
+    throw error;
+  }
+}
+
 function sameOrigin(req) {
   const origin = req.headers.origin;
   const site = req.headers['sec-fetch-site'];
@@ -89,10 +114,7 @@ module.exports = async function handler(req, res) {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: 'Authorize one review correction pass', content: Buffer.from(updated).toString('base64'), sha: file.sha, branch })
       });
-      await github(`https://api.github.com/repos/${repository}/actions/workflows/codex-feature-developer.yml/dispatches`, session.token, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ref: branch, inputs: { branch, plan_path: planPath } })
-      });
+      await dispatchWithLock(repository, branch, planPath, 'correction', 'codex-feature-developer.yml', { branch, plan_path: planPath }, session.token);
       return res.status(202).json({ ok: true, status: 'CORRECTION_DISPATCHED', next: 'One explicitly approved Developer correction call was requested. Tests and independent re-review are still required.' });
     }
 
@@ -103,11 +125,7 @@ module.exports = async function handler(req, res) {
       if (pr.head.ref !== branch || pr.state !== 'open') return res.status(409).json({ error: 'The pull request does not match this active task branch.' });
       const labels = (await github(`https://api.github.com/repos/${repository}/issues/${prNumber}/labels`, session.token)).map((label) => label.name);
       if (!labels.includes('ai-review-paused')) return res.status(409).json({ error: 'The Reviewer is not paused after a technical failure.' });
-      await acquireDispatchLock(repository, branch, planPath, 'review-retry', session.token);
-      await github(`https://api.github.com/repos/${repository}/actions/workflows/gemini-review.yml/dispatches`, session.token, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ref: branch, inputs: { pr_number: String(prNumber) } })
-      });
+      await dispatchWithLock(repository, branch, planPath, 'review-retry', 'gemini-review.yml', { pr_number: String(prNumber) }, session.token);
       return res.status(202).json({ ok: true, status: 'REVIEW_RETRY_DISPATCHED', next: 'One explicitly approved Reviewer retry was requested. No further retry will happen automatically.' });
     }
 
@@ -119,11 +137,7 @@ module.exports = async function handler(req, res) {
       if (!text.includes('Status: READY_FOR_REVIEW')) return res.status(409).json({ error: 'Deterministic validation has not marked this task ready for review.' });
       const pr = await github(`https://api.github.com/repos/${repository}/pulls/${prNumber}`, session.token);
       if (pr.head.ref !== branch || pr.state !== 'open') return res.status(409).json({ error: 'The pull request does not match this active task branch.' });
-      await acquireDispatchLock(repository, branch, planPath, 'review', session.token);
-      await github(`https://api.github.com/repos/${repository}/actions/workflows/gemini-review.yml/dispatches`, session.token, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ref: branch, inputs: { pr_number: String(prNumber) } })
-      });
+      await dispatchWithLock(repository, branch, planPath, 'review', 'gemini-review.yml', { pr_number: String(prNumber) }, session.token);
       return res.status(202).json({ ok: true, status: 'REVIEW_DISPATCHED', next: 'One independent Reviewer AI run was requested. Automatic retry remains disabled.' });
     }
 
@@ -137,10 +151,7 @@ module.exports = async function handler(req, res) {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: 'Authorize one explicit Developer retry', content: Buffer.from(updated).toString('base64'), sha: file.sha, branch })
       });
-      await github(`https://api.github.com/repos/${repository}/actions/workflows/codex-feature-developer.yml/dispatches`, session.token, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ref: branch, inputs: { branch, plan_path: planPath } })
-      });
+      await dispatchWithLock(repository, branch, planPath, 'development-retry', 'codex-feature-developer.yml', { branch, plan_path: planPath }, session.token);
       return res.status(202).json({ ok: true, status: 'RETRY_DISPATCHED', next: 'One explicitly approved Developer retry was requested. No further retry will happen automatically.' });
     }
 
@@ -148,11 +159,7 @@ module.exports = async function handler(req, res) {
       const file = await github(`https://api.github.com/repos/${repository}/contents/${planPath}?ref=${encodeURIComponent(branch)}`, session.token);
       const text = Buffer.from(file.content, 'base64').toString('utf8');
       if (!text.includes('Status: READY_FOR_DEVELOPMENT')) return res.status(409).json({ error: 'This task is not approved for development.' });
-      await acquireDispatchLock(repository, branch, planPath, 'development', session.token);
-      await github(`https://api.github.com/repos/${repository}/actions/workflows/codex-feature-developer.yml/dispatches`, session.token, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ref: branch, inputs: { branch, plan_path: planPath } })
-      });
+      await dispatchWithLock(repository, branch, planPath, 'development', 'codex-feature-developer.yml', { branch, plan_path: planPath }, session.token);
       return res.status(202).json({ ok: true, status: 'DEVELOPMENT_DISPATCHED', next: 'One approved Developer AI run was requested. Automatic retry remains disabled.' });
     }
 
