@@ -35,7 +35,7 @@ module.exports = async function handler(req, res) {
   const action = String(body.action || '').trim();
   if (!(registry.projects || []).some((p) => p.repository === repository)) return res.status(400).json({ error: 'Choose a registered factory project.' });
   if (!/^task\/[a-zA-Z0-9._/-]+$/.test(branch) || !/^\.ai\/tasks\/[a-zA-Z0-9._/-]+\.md$/.test(planPath)) return res.status(400).json({ error: 'Invalid task workspace.' });
-  if (!['approve-development', 'start-development', 'retry-development', 'start-review', 'merge'].includes(action)) return res.status(400).json({ error: 'Unsupported lifecycle action.' });
+  if (!['approve-development', 'start-development', 'retry-development', 'start-review', 'retry-review', 'merge'].includes(action)) return res.status(400).json({ error: 'Unsupported lifecycle action.' });
 
   try {
     if (action === 'merge') {
@@ -53,6 +53,20 @@ module.exports = async function handler(req, res) {
       });
       if (!merged.merged) return res.status(409).json({ error: merged.message || 'GitHub did not merge this pull request.' });
       return res.status(200).json({ ok: true, status: 'MERGED', sha: merged.sha, next: 'Code merged. Deployment remains a separate explicit stage.' });
+    }
+
+    if (action === 'retry-review') {
+      const prNumber = Number(body.pr_number);
+      if (!Number.isInteger(prNumber) || prNumber < 1) return res.status(400).json({ error: 'A valid pull request is required for review retry.' });
+      const pr = await github(`https://api.github.com/repos/${repository}/pulls/${prNumber}`, session.token);
+      if (pr.head.ref !== branch || pr.state !== 'open') return res.status(409).json({ error: 'The pull request does not match this active task branch.' });
+      const labels = (await github(`https://api.github.com/repos/${repository}/issues/${prNumber}/labels`, session.token)).map((label) => label.name);
+      if (!labels.includes('ai-review-paused')) return res.status(409).json({ error: 'The Reviewer is not paused after a technical failure.' });
+      await github(`https://api.github.com/repos/${repository}/actions/workflows/gemini-review.yml/dispatches`, session.token, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ref: branch, inputs: { pr_number: String(prNumber) } })
+      });
+      return res.status(202).json({ ok: true, status: 'REVIEW_RETRY_DISPATCHED', next: 'One explicitly approved Reviewer retry was requested. No further retry will happen automatically.' });
     }
 
     if (action === 'start-review') {

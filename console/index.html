@@ -473,6 +473,8 @@
           const review = task.workspace?.status === "READY_FOR_REVIEW" && task.workspace?.pull_request && task.workspace.pull_request.review !== "READY"
             ? '<button class="start-review-btn" type="button" data-repo="' + escapeHtml(repository) + '" data-branch="' + escapeHtml(task.workspace.branch) + '" data-plan="' + escapeHtml(task.workspace.plan_path) + '" data-pr="' + task.workspace.pull_request.number + '">Start review (1 AI call)</button>'
             : '';
+          const reviewRetry = task.workspace?.pull_request?.review === "PAUSED"
+            ? '<button class="retry-review-btn" type="button" data-repo="' + escapeHtml(repository) + '" data-branch="' + escapeHtml(task.workspace.branch) + '" data-plan="' + escapeHtml(task.workspace.plan_path) + '" data-pr="' + task.workspace.pull_request.number + '">Retry Reviewer (1 AI call)</button>' : '';
           const merge = task.workspace?.pull_request?.review === "READY"
             ? '<button class="merge-task-btn" type="button" data-repo="' + escapeHtml(repository) + '" data-branch="' + escapeHtml(task.workspace.branch) + '" data-plan="' + escapeHtml(task.workspace.plan_path) + '" data-pr="' + task.workspace.pull_request.number + '">Merge approved change</button>'
             : '';
@@ -483,8 +485,21 @@
           const reviewState = task.workspace?.pull_request?.review && task.workspace.pull_request.review !== "NOT_REVIEWED"
             ? '<div class="item-meta">Review: ' + escapeHtml(task.workspace.pull_request.review.replaceAll("_", " ")) + '</div>' : '';
           return '<div class="item"><div class="run-row"><div><a class="item-title" href="' + task.url + '" target="_blank" rel="noreferrer">#' + task.number + ' ' + escapeHtml(task.title) + '</a>' +
-            '<div class="item-meta">' + escapeHtml(labels) + '</div></div><span class="badge">Open</span></div>' + reviewState + approve + develop + retry + review + merge + '</div>';
+            '<div class="item-meta">' + escapeHtml(labels) + '</div></div><span class="badge">Open</span></div>' + reviewState + approve + develop + retry + review + reviewRetry + merge + '</div>';
         }).join("");
+        container.querySelectorAll(".retry-review-btn").forEach((button) => {
+          button.addEventListener("click", async () => {
+            if (!window.confirm("Retry the independent Reviewer? This intentionally uses one additional AI call. No further retry will happen automatically.")) return;
+            button.disabled = true; button.textContent = "Starting retry…";
+            try {
+              const response = await fetch("/api/task-actions", { method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "retry-review", repository: button.dataset.repo, branch: button.dataset.branch, plan_path: button.dataset.plan, pr_number: Number(button.dataset.pr) }) });
+              const data = await response.json();
+              if (!response.ok) throw new Error(data.error || "Could not retry Reviewer.");
+              button.textContent = "Retry started";
+            } catch (error) { button.disabled = false; button.textContent = "Retry Reviewer (1 AI call)"; alert(error.message); }
+          });
+        });
         container.querySelectorAll(".retry-dev-btn").forEach((button) => {
           button.addEventListener("click", async () => {
             if (!window.confirm("Retry the Developer? This intentionally uses one additional AI call. No further retry will happen automatically.")) return;
