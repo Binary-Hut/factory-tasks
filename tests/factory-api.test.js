@@ -204,3 +204,14 @@ test('paid AI dispatch locks are scoped to the current plan generation', () => {
   assert.match(source, /const generation = String\(plan\.sha/);
   assert.doesNotMatch(source, /acquireDispatchLock\(repository, branch, planPath, 'correction'.*\n.*const updated/s);
 });
+
+
+test('merge gate requires successful deterministic GitHub Actions for the PR head', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const source = fs.readFileSync(path.resolve(__dirname, '../api/task-actions.js'), 'utf8');
+  assert.match(source, /actions\/runs\?head_sha=/);
+  assert.match(source, /\['Run Tests', 'Branch Collision Guard'\]/);
+  assert.match(source, /run\.status !== 'completed' \|\| run\.conclusion !== 'success'/);
+  assert.match(source, /combined\.state === 'pending'/);
+});
