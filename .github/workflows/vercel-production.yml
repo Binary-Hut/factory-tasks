@@ -21,6 +21,8 @@ jobs:
     env:
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       VERCEL_PROJECT_NAME: ${{ github.event.repository.name }}
+      VERCEL_ORG_ID: team_3vPclbemLP1MZeIe8NpOtkiJ
+      VERCEL_PROJECT_ID: prj_uroJlt4DDPvd3ZOpacn0FUIM6zIr
     steps:
       - name: Check out deployment request
         uses: actions/checkout@v4
@@ -76,7 +78,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          URL="$(vercel deploy --prod --yes --project "$VERCEL_PROJECT_NAME" --token "$VERCEL_TOKEN")"
+          URL="$(vercel deploy --prod --yes --token "$VERCEL_TOKEN")"
           echo "url=$URL" >> "$GITHUB_OUTPUT"
           echo "Production deployment: $URL" >> "$GITHUB_STEP_SUMMARY"
 
