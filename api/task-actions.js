@@ -201,8 +201,8 @@ module.exports = async function handler(req, res) {
       });
       const project = (registry.projects || []).find((item) => item.repository === repository);
       const developer = configuredAgent(project, 'developer');
-      if (!developer?.workflow || !developer?.model) return res.status(409).json({ error: 'This project has no runnable Developer configuration.' });
-      await dispatchWithLock(repository, branch, planPath, 'correction', developer.workflow, { branch, plan_path: planPath, model: developer.model }, session.token);
+      if (!developer?.workflow || (!developer?.runtime_model && !developer?.model)) return res.status(409).json({ error: 'This project has no runnable Developer configuration.' });
+      await dispatchWithLock(repository, branch, planPath, 'correction', developer.workflow, { branch, plan_path: planPath, model: developer.runtime_model ? '' : developer.model }, session.token);
       return res.status(202).json({ ok: true, status: 'CORRECTION_DISPATCHED', next: 'One explicitly approved Developer correction call was requested. Tests and independent re-review are still required.' });
     }
 
@@ -215,8 +215,8 @@ module.exports = async function handler(req, res) {
       if (!labels.includes('ai-review-paused')) return res.status(409).json({ error: 'The Reviewer is not paused after a technical failure.' });
       const project = (registry.projects || []).find((item) => item.repository === repository);
       const reviewer = configuredAgent(project, 'reviewer');
-      if (!reviewer?.workflow || !reviewer?.model) return res.status(409).json({ error: 'This project has no runnable Reviewer configuration.' });
-      await dispatchWithLock(repository, branch, planPath, 'review-retry', reviewer.workflow, { pr_number: String(prNumber), model: reviewer.model }, session.token);
+      if (!reviewer?.workflow || (!reviewer?.runtime_model && !reviewer?.model)) return res.status(409).json({ error: 'This project has no runnable Reviewer configuration.' });
+      await dispatchWithLock(repository, branch, planPath, 'review-retry', reviewer.workflow, { pr_number: String(prNumber), model: reviewer.runtime_model ? '' : reviewer.model }, session.token);
       return res.status(202).json({ ok: true, status: 'REVIEW_RETRY_DISPATCHED', next: 'One explicitly approved Reviewer retry was requested. No further retry will happen automatically.' });
     }
 
@@ -230,8 +230,8 @@ module.exports = async function handler(req, res) {
       if (pr.head.ref !== branch || pr.state !== 'open') return res.status(409).json({ error: 'The pull request does not match this active task branch.' });
       const project = (registry.projects || []).find((item) => item.repository === repository);
       const reviewer = configuredAgent(project, 'reviewer');
-      if (!reviewer?.workflow || !reviewer?.model) return res.status(409).json({ error: 'This project has no runnable Reviewer configuration.' });
-      await dispatchWithLock(repository, branch, planPath, 'review', reviewer.workflow, { pr_number: String(prNumber), model: reviewer.model }, session.token);
+      if (!reviewer?.workflow || (!reviewer?.runtime_model && !reviewer?.model)) return res.status(409).json({ error: 'This project has no runnable Reviewer configuration.' });
+      await dispatchWithLock(repository, branch, planPath, 'review', reviewer.workflow, { pr_number: String(prNumber), model: reviewer.runtime_model ? '' : reviewer.model }, session.token);
       return res.status(202).json({ ok: true, status: 'REVIEW_DISPATCHED', next: 'One independent Reviewer AI run was requested. Automatic retry remains disabled.' });
     }
 
@@ -246,8 +246,8 @@ module.exports = async function handler(req, res) {
       });
       const project = (registry.projects || []).find((item) => item.repository === repository);
       const developer = configuredAgent(project, 'developer');
-      if (!developer?.workflow || !developer?.model) return res.status(409).json({ error: 'This project has no runnable Developer configuration.' });
-      await dispatchWithLock(repository, branch, planPath, 'development-retry', developer.workflow, { branch, plan_path: planPath, model: developer.model }, session.token);
+      if (!developer?.workflow || (!developer?.runtime_model && !developer?.model)) return res.status(409).json({ error: 'This project has no runnable Developer configuration.' });
+      await dispatchWithLock(repository, branch, planPath, 'development-retry', developer.workflow, { branch, plan_path: planPath, model: developer.runtime_model ? '' : developer.model }, session.token);
       return res.status(202).json({ ok: true, status: 'RETRY_DISPATCHED', next: 'One explicitly approved Developer retry was requested. No further retry will happen automatically.' });
     }
 
@@ -257,8 +257,8 @@ module.exports = async function handler(req, res) {
       if (!text.includes('Status: READY_FOR_DEVELOPMENT')) return res.status(409).json({ error: 'This task is not approved for development.' });
       const project = (registry.projects || []).find((item) => item.repository === repository);
       const developer = configuredAgent(project, 'developer');
-      if (!developer?.workflow || !developer?.model) return res.status(409).json({ error: 'This project has no runnable Developer configuration.' });
-      await dispatchWithLock(repository, branch, planPath, 'development', developer.workflow, { branch, plan_path: planPath, model: developer.model }, session.token);
+      if (!developer?.workflow || (!developer?.runtime_model && !developer?.model)) return res.status(409).json({ error: 'This project has no runnable Developer configuration.' });
+      await dispatchWithLock(repository, branch, planPath, 'development', developer.workflow, { branch, plan_path: planPath, model: developer.runtime_model ? '' : developer.model }, session.token);
       return res.status(202).json({ ok: true, status: 'DEVELOPMENT_DISPATCHED', next: 'One approved Developer AI run was requested. Automatic retry remains disabled.' });
     }
 
