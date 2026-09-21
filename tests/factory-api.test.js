@@ -402,3 +402,15 @@ test('Vercel metadata resolver is explicit ESM on Node 24', () => {
   assert.match(workflow, /fs\.appendFileSync\(process\.env\.GITHUB_ENV/);
   assert.doesNotMatch(workflow, /require\('fs'\)\.appendFileSync/);
 });
+
+
+test('Vercel production workflow creates or links fresh projects non-interactively', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const workflow = fs.readFileSync(path.resolve(__dirname, '../.factory/workflows/vercel-production.yml'), 'utf8');
+  assert.match(workflow, /vercel link --yes --project "\$VERCEL_PROJECT_NAME" --token "\$VERCEL_TOKEN"/);
+  assert.match(workflow, /\.vercel\/project\.json/);
+  assert.match(workflow, /project\.projectId/);
+  assert.match(workflow, /project\.orgId/);
+  assert.doesNotMatch(workflow, /vercel project add .*--yes/);
+});
