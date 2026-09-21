@@ -55,12 +55,16 @@ jobs:
           if [ -f .factory/deployment.json ]; then
             PROVIDER="$(node -e "const c=require('./.factory/deployment.json'); process.stdout.write(String(c.provider || ''))")"
             PROJECT_NAME="$(node -e "const c=require('./.factory/deployment.json'); process.stdout.write(String(c.project_name || ''))")"
+            PRODUCTION_ACCESS="$(node -e "const c=require('./.factory/deployment.json'); process.stdout.write(String(c.production_access || ''))")"
             if [ "$PROVIDER" != "vercel" ]; then
               echo "::error::This workflow requires provider=vercel in .factory/deployment.json."
               exit 1
             fi
             if [ -n "$PROJECT_NAME" ]; then
               echo "VERCEL_PROJECT_NAME=$PROJECT_NAME" >> "$GITHUB_ENV"
+            fi
+            if [ -n "$PRODUCTION_ACCESS" ]; then
+              echo "FACTORY_PRODUCTION_ACCESS=$PRODUCTION_ACCESS" >> "$GITHUB_ENV"
             fi
           fi
 
@@ -103,6 +107,37 @@ jobs:
           }
           fs.appendFileSync(process.env.GITHUB_ENV,
             'VERCEL_PROJECT_ID=' + project.projectId + '\nVERCEL_ORG_ID=' + project.orgId + '\n');
+          NODE
+
+      - name: Apply production access policy
+        if: env.FACTORY_PRODUCTION_ACCESS == 'public'
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          const projectId = process.env.VERCEL_PROJECT_ID;
+          const teamId = process.env.VERCEL_ORG_ID;
+          const token = process.env.VERCEL_TOKEN;
+          if (!projectId || !teamId || !token) {
+            console.error('::error::Vercel project metadata is incomplete; cannot apply public production access policy.');
+            process.exit(1);
+          }
+          const url = new URL('https://api.vercel.com/v9/projects/' + encodeURIComponent(projectId));
+          url.searchParams.set('teamId', teamId);
+          const response = await fetch(url, {
+            method: 'PATCH',
+            headers: {
+              Authorization: 'Bearer ' + token,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ ssoProtection: null })
+          });
+          if (!response.ok) {
+            const detail = await response.text().catch(() => '');
+            console.error('::error::Could not disable Vercel Authentication for public production (' + response.status + '): ' + detail.slice(0, 500));
+            process.exit(1);
+          }
+          console.log('Applied public production access policy: Vercel Authentication disabled.');
           NODE
 
       - name: Deploy approved main commit to production
