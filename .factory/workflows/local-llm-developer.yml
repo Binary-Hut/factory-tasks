@@ -20,7 +20,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: local-llm-feature-developer-\${{ inputs.branch }}
+  group: local-llm-feature-developer-${{ inputs.branch }}
   cancel-in-progress: false
 
 jobs:
@@ -28,11 +28,11 @@ jobs:
     runs-on: [self-hosted, factory-local-llm]
     timeout-minutes: 40
     env:
-      LOCAL_LLM_ADAPTER: \${{ vars.LOCAL_LLM_ADAPTER || 'ollama' }}
-      LOCAL_LLM_MODEL: \${{ vars.LOCAL_LLM_MODEL }}
-      OLLAMA_BASE_URL: \${{ vars.OLLAMA_BASE_URL || 'http://127.0.0.1:11434' }}
-      LOCAL_LLM_HTTP_URL: \${{ vars.LOCAL_LLM_HTTP_URL }}
-      LOCAL_LLM_HTTP_TOKEN: \${{ secrets.LOCAL_LLM_HTTP_TOKEN }}
+      LOCAL_LLM_ADAPTER: ${{ vars.LOCAL_LLM_ADAPTER || 'ollama' }}
+      LOCAL_LLM_MODEL: ${{ vars.LOCAL_LLM_MODEL }}
+      OLLAMA_BASE_URL: ${{ vars.OLLAMA_BASE_URL || 'http://127.0.0.1:11434' }}
+      LOCAL_LLM_HTTP_URL: ${{ vars.LOCAL_LLM_HTTP_URL }}
+      LOCAL_LLM_HTTP_TOKEN: ${{ secrets.LOCAL_LLM_HTTP_TOKEN }}
     steps:
       - name: Check local LLM configuration
         shell: bash
@@ -47,15 +47,25 @@ jobs:
       - name: Check out feature branch
         uses: actions/checkout@v4
         with:
-          ref: \${{ inputs.branch }}
+          ref: ${{ inputs.branch }}
           fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
 
       - name: Verify approved plan exists
         shell: bash
         run: |
           set -euo pipefail
-          test -f "\${{ inputs.plan_path }}" || { echo "Plan file not found." >&2; exit 1; }
-          grep -Eq "Status: (READY_FOR_DEVELOPMENT|READY_FOR_RETRY|READY_FOR_CORRECTION)" "\${{ inputs.plan_path }}" || {
+          test -f "${{ inputs.plan_path }}" || { echo "Plan file not found." >&2; exit 1; }
+          grep -Eq "Status: (READY_FOR_DEVELOPMENT|READY_FOR_RETRY|READY_FOR_CORRECTION)" "${{ inputs.plan_path }}" || {
             echo "Plan must be READY_FOR_DEVELOPMENT, READY_FOR_RETRY, or READY_FOR_CORRECTION." >&2
             exit 1
           }
@@ -63,7 +73,7 @@ jobs:
       - name: Mark developer stage active
         shell: bash
         env:
-          PLAN_PATH: \${{ inputs.plan_path }}
+          PLAN_PATH: ${{ inputs.plan_path }}
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -82,7 +92,7 @@ jobs:
       - name: Build compact repository context
         shell: bash
         env:
-          PLAN_PATH: \${{ inputs.plan_path }}
+          PLAN_PATH: ${{ inputs.plan_path }}
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -120,7 +130,7 @@ jobs:
         run: |
           set -euo pipefail
           {
-            echo "You are the Developer for \${{ github.repository }}."
+            echo "You are the Developer for ${{ github.repository }}."
             echo "Implement only the approved plan and preserve the documented architecture."
             echo "Do not add unapproved auth, payments, databases, external APIs, paid services, dependencies, frameworks, or deployment changes."
             echo "Add or update deterministic tests and .factory/test.sh when behavior changes."
@@ -152,7 +162,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
           git commit -m "Preserve local LLM implementation pending validation"
-          git push origin HEAD:"\${{ inputs.branch }}"
+          git push origin HEAD:"${{ inputs.branch }}"
 
       - name: Run deterministic validation
         shell: bash
@@ -165,7 +175,7 @@ jobs:
       - name: Advance plan status
         shell: bash
         env:
-          PLAN_PATH: \${{ inputs.plan_path }}
+          PLAN_PATH: ${{ inputs.plan_path }}
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -183,15 +193,15 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add "\${{ inputs.plan_path }}"
+          git add "${{ inputs.plan_path }}"
           git commit -m "Mark validated implementation ready for review"
-          git push origin HEAD:"\${{ inputs.branch }}"
+          git push origin HEAD:"${{ inputs.branch }}"
 
       - name: Pause task if developer stage fails
         if: failure()
         shell: bash
         env:
-          PLAN_PATH: \${{ inputs.plan_path }}
+          PLAN_PATH: ${{ inputs.plan_path }}
         run: |
           if [ ! -f "$PLAN_PATH" ]; then exit 0; fi
           python - <<'PY'
@@ -207,4 +217,4 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add "$PLAN_PATH"
           git commit -m "Pause AI task after failed local developer run"
-          git push origin HEAD:"\${{ inputs.branch }}" || true
+          git push origin HEAD:"${{ inputs.branch }}" || true
