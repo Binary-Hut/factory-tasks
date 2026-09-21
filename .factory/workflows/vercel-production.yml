@@ -86,26 +86,23 @@ jobs:
         run: |
           set -euo pipefail
           if ! vercel project inspect "$VERCEL_PROJECT_NAME" --token "$VERCEL_TOKEN" >/dev/null 2>&1; then
-            vercel project add "$VERCEL_PROJECT_NAME" --yes --token "$VERCEL_TOKEN"
+            vercel link --yes --project "$VERCEL_PROJECT_NAME" --token "$VERCEL_TOKEN"
+          else
+            vercel link --yes --project "$VERCEL_PROJECT_NAME" --token "$VERCEL_TOKEN" >/dev/null
           fi
+          test -f .vercel/project.json || {
+            echo "::error::Vercel project linking did not create .vercel/project.json."
+            exit 1
+          }
           node --input-type=module <<'NODE'
           import fs from 'node:fs';
-          const name = process.env.VERCEL_PROJECT_NAME;
-          const token = process.env.VERCEL_TOKEN;
-          const response = await fetch('https://api.vercel.com/v9/projects/' + encodeURIComponent(name), {
-            headers: { Authorization: 'Bearer ' + token }
-          });
-          if (!response.ok) {
-            console.error('::error::Vercel project metadata could not be resolved (' + response.status + ').');
-            process.exit(1);
-          }
-          const project = await response.json();
-          if (!project.id || !project.accountId) {
-            console.error('::error::Vercel project metadata did not include project/account IDs.');
+          const project = JSON.parse(fs.readFileSync('.vercel/project.json', 'utf8'));
+          if (!project.projectId || !project.orgId) {
+            console.error('::error::.vercel/project.json did not include projectId/orgId.');
             process.exit(1);
           }
           fs.appendFileSync(process.env.GITHUB_ENV,
-            'VERCEL_PROJECT_ID=' + project.id + '\nVERCEL_ORG_ID=' + project.accountId + '\n');
+            'VERCEL_PROJECT_ID=' + project.projectId + '\nVERCEL_ORG_ID=' + project.orgId + '\n');
           NODE
 
       - name: Deploy approved main commit to production
