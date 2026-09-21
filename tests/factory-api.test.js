@@ -391,3 +391,14 @@ test('project registry validator rejects agent IDs not present in the agent cata
   assert.match(source, /allowedAgents\[role\]\.has\(project\.agents\[role\]\)/);
   assert.match(source, /references unknown catalog option/);
 });
+
+
+test('Vercel metadata resolver is explicit ESM on Node 24', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const workflow = fs.readFileSync(path.resolve(__dirname, '../.factory/workflows/vercel-production.yml'), 'utf8');
+  assert.match(workflow, /node --input-type=module <<'NODE'/);
+  assert.match(workflow, /import fs from 'node:fs'/);
+  assert.match(workflow, /fs\.appendFileSync\(process\.env\.GITHUB_ENV/);
+  assert.doesNotMatch(workflow, /require\('fs'\)\.appendFileSync/);
+});
