@@ -7,7 +7,7 @@ function mockGitHub(page, { failed = false, deploymentSetupBlocked = false } = {
   return page.route('https://api.github.com/**', async (route) => {
     const url = route.request().url();
 
-    if (url.includes('/actions/runs')) {
+    if (url.includes('/actions/runs') && !url.includes('/jobs')) {
       const workflow_runs = [
         {
           name: 'Run Tests',
