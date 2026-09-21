@@ -22,13 +22,19 @@ function isSlug(value) {
 
 const registry = readJson('.factory/projects.json');
 const template = readJson('.factory/project-template.json');
+const agentCatalog = readJson('.factory/agents.json');
 
 assert(registry.schema_version === 1, 'projects.json: unsupported schema_version');
 assert(template.schema_version === 1, 'project-template.json: unsupported schema_version');
+assert(agentCatalog.schema_version === 1, 'agents.json: unsupported schema_version');
 assert(Array.isArray(registry.projects), 'projects.json: projects must be an array');
 
 const allowedTypes = new Set(template.allowed_project_types || []);
 const allowedDeployments = new Set(template.allowed_deployments || []);
+const allowedAgents = Object.fromEntries(['planner', 'developer', 'reviewer'].map((role) => [
+  role,
+  new Set((agentCatalog.roles?.[role]?.options || []).map((option) => option.id))
+]));
 const ids = new Set();
 const repos = new Set();
 
@@ -50,6 +56,8 @@ for (const project of registry.projects) {
   for (const role of ['planner', 'developer', 'reviewer']) {
     assert(typeof project.agents[role] === 'string' && project.agents[role],
       `${project.id}: agents.${role} is required`);
+    assert(allowedAgents[role].has(project.agents[role]),
+      `${project.id}: agents.${role} references unknown catalog option "${project.agents[role]}"`);
   }
 
   assert(project.ai_budget && typeof project.ai_budget === 'object',
