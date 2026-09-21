@@ -3,7 +3,7 @@ const path = require('path');
 
 const CONSOLE_URL = 'file://' + path.resolve(__dirname, '../console/index.html');
 
-function mockGitHub(page, { failed = false, deploymentSetupBlocked = false } = {}) {
+function mockGitHub(page, { failed = false, deploymentSetupBlocked = false, deploymentSetupStep = 'Verify deployment credentials' } = {}) {
   return page.route('https://api.github.com/**', async (route) => {
     const url = route.request().url();
 
@@ -42,7 +42,7 @@ function mockGitHub(page, { failed = false, deploymentSetupBlocked = false } = {
         body: JSON.stringify({
           jobs: [{
             steps: deploymentSetupBlocked
-              ? [{ name: 'Verify deployment credentials', conclusion: 'failure' }]
+              ? [{ name: deploymentSetupStep, conclusion: 'failure' }]
               : []
           }]
         })
@@ -121,7 +121,7 @@ test('console separates missing deployment credentials from code failures', asyn
   await page.goto(CONSOLE_URL);
 
   await expect(page.locator('#health-title')).toHaveText('Setup required');
-  await expect(page.locator('#health-detail')).toContainText('provider credentials');
+  await expect(page.locator('#health-detail')).toContainText('provider/project access');
   await expect(page.locator('#recent-runs')).toContainText('Setup required');
 });
 
@@ -191,4 +191,16 @@ test('Console keeps production deployment behind a separate confirmation action'
   expect(source).toContain('Deploy production');
   expect(source).toContain('/api/deployments');
   expect(source).toContain('separate production action');
+});
+
+
+test('console classifies Vercel project access and public access protection as setup blockers', async ({ page }) => {
+  await mockGitHub(page, { deploymentSetupBlocked: true, deploymentSetupStep: 'Verify Vercel project access' });
+  await page.goto(CONSOLE_URL);
+  await expect(page.locator('#health-title')).toHaveText('Setup required');
+
+  await page.unrouteAll({ behavior: 'wait' });
+  await mockGitHub(page, { deploymentSetupBlocked: true, deploymentSetupStep: 'Verify public production access' });
+  await page.reload();
+  await expect(page.locator('#health-title')).toHaveText('Setup required');
 });
