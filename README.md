@@ -22,15 +22,17 @@ There is nothing to install. Open `index.html` in any web browser
 Your tasks are saved automatically in your browser. They will still be
 there next time you open the file in the same browser on the same device.
 
-## How to test it (manual, for now)
+## How it is tested
 
-1. Add a task called "Test 1" — confirm it appears in the list
-2. Click its checkbox — confirm it gets a strikethrough
-3. Click its checkbox again — confirm the strikethrough goes away
-4. Click the × next to it — confirm it disappears from the list
-5. Add three tasks, refresh the page — confirm all three are still there
+Automated Playwright tests cover the task manager and Factory Console, and GitHub Actions runs the deterministic test suite on pull requests and changes to main.
 
-(Automated tests are planned for a later phase — see ROADMAP.md.)
+For a quick manual smoke test:
+
+1. Add a task called "Test 1" — confirm it appears in the list.
+2. Click its checkbox — confirm it gets a strikethrough.
+3. Click its checkbox again — confirm the strikethrough goes away.
+4. Click the × next to it — confirm it disappears from the list.
+5. Add three tasks, refresh the page — confirm all three are still there.
 
 ## How deployment works
 
