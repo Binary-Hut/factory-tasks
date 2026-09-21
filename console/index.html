@@ -435,10 +435,14 @@
         try {
           const jobsData = await getJson(run.jobs_url);
           const jobs = jobsData.jobs || [];
+          const setupSteps = new Set([
+            "Verify deployment credentials",
+            "Verify Vercel project access",
+            "Verify public production access"
+          ]);
           run.configuration_blocker = jobs.some((job) =>
             (job.steps || []).some((step) =>
-              step.name === "Verify deployment credentials" &&
-              step.conclusion === "failure"
+              setupSteps.has(step.name) && step.conclusion === "failure"
             )
           );
         } catch (_) {
@@ -822,7 +826,7 @@
       } else if (hasSetupBlocker) {
         dot.classList.add("busy");
         title.textContent = "Setup required";
-        detail.textContent = "Source tests are healthy, but production deployment needs its provider credentials configured before it can run.";
+        detail.textContent = "Source tests are healthy, but production deployment needs provider/project access or public production access configured before verification can complete.";
       } else if (hasRunning) {
         dot.classList.add("busy");
         title.textContent = "Work is in progress";

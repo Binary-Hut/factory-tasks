@@ -44,7 +44,7 @@
       "AGENTS.md"
     ],
     "configure_per_project": [
-      "deployment/production verification when the project reaches deployment"
+      ".factory/deployment.json"
     ]
   },
   "default_agents": {

@@ -185,6 +185,19 @@ module.exports = async function handler(req, res) {
     await createFile(
       organization,
       project.slug,
+      '.factory/deployment.json',
+      base64(JSON.stringify({
+        schema_version: 1,
+        provider: project.deployment || 'none',
+        project_name: project.slug,
+        production_access: 'public'
+      }, null, 2) + '\n'),
+      session.token
+    );
+
+    await createFile(
+      organization,
+      project.slug,
       '.factory/project.json',
       base64(JSON.stringify({
         schema_version: 1,

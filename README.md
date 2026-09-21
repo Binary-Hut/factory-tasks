@@ -40,3 +40,7 @@ Factory Tasks is hosted on Vercel. Source changes pass deterministic tests and
 independent review before merge. Production deployment is a separate,
 owner-confirmed action in the Factory Console; it is never started by an AI
 agent or automatically retried.
+
+## Reusable deployment configuration
+
+New Factory-managed projects keep non-secret provider metadata in `.factory/deployment.json`. Shared deployment workflows resolve provider project identifiers at runtime, so cloning the Factory does not copy Factory Tasks-specific Vercel IDs into another project.
