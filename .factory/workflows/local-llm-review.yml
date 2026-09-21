@@ -18,7 +18,7 @@ permissions:
   issues: write
 
 concurrency:
-  group: local-llm-review-\${{ inputs.pr_number }}
+  group: local-llm-review-${{ inputs.pr_number }}
   cancel-in-progress: true
 
 jobs:
@@ -26,11 +26,11 @@ jobs:
     runs-on: [self-hosted, factory-local-llm]
     timeout-minutes: 20
     env:
-      LOCAL_LLM_ADAPTER: \${{ vars.LOCAL_LLM_ADAPTER || 'ollama' }}
-      LOCAL_LLM_MODEL: \${{ vars.LOCAL_LLM_MODEL }}
-      OLLAMA_BASE_URL: \${{ vars.OLLAMA_BASE_URL || 'http://127.0.0.1:11434' }}
-      LOCAL_LLM_HTTP_URL: \${{ vars.LOCAL_LLM_HTTP_URL }}
-      LOCAL_LLM_HTTP_TOKEN: \${{ secrets.LOCAL_LLM_HTTP_TOKEN }}
+      LOCAL_LLM_ADAPTER: ${{ vars.LOCAL_LLM_ADAPTER || 'ollama' }}
+      LOCAL_LLM_MODEL: ${{ vars.LOCAL_LLM_MODEL }}
+      OLLAMA_BASE_URL: ${{ vars.OLLAMA_BASE_URL || 'http://127.0.0.1:11434' }}
+      LOCAL_LLM_HTTP_URL: ${{ vars.LOCAL_LLM_HTTP_URL }}
+      LOCAL_LLM_HTTP_TOKEN: ${{ secrets.LOCAL_LLM_HTTP_TOKEN }}
     steps:
       - name: Check local LLM configuration
         shell: bash
@@ -45,9 +45,9 @@ jobs:
       - name: Resolve PR metadata
         id: pr
         env:
-          GH_TOKEN: \${{ github.token }}
-          INPUT_PR: \${{ inputs.pr_number }}
-          REPO: \${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+          INPUT_PR: ${{ inputs.pr_number }}
+          REPO: ${{ github.repository }}
         shell: bash
         run: |
           set -euo pipefail
@@ -63,19 +63,24 @@ jobs:
       - name: Check out PR branch
         uses: actions/checkout@v4
         with:
-          ref: \${{ steps.pr.outputs.head_ref }}
+          ref: ${{ steps.pr.outputs.head_ref }}
           fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
 
       - name: Build review prompt
         shell: bash
         env:
-          BASE_REF: \${{ steps.pr.outputs.base_ref }}
+          BASE_REF: ${{ steps.pr.outputs.base_ref }}
         run: |
           set -euo pipefail
           git fetch origin "$BASE_REF"
           git diff --no-ext-diff --unified=80 "origin/$BASE_REF"...HEAD > /tmp/local-review.diff
           {
-            echo "You are the independent Reviewer for \${{ github.repository }}. This is review-only."
+            echo "You are the independent Reviewer for ${{ github.repository }}. This is review-only."
             echo "Check acceptance criteria, regressions, unnecessary complexity, deterministic tests, and repository policy."
             echo "Return exactly these sections:"
             echo "## Acceptance criteria check"
@@ -107,9 +112,9 @@ jobs:
       - name: Post review and record state
         shell: bash
         env:
-          GH_TOKEN: \${{ github.token }}
-          PR_NUMBER: \${{ steps.pr.outputs.number }}
-          REVIEWED_SHA: \${{ steps.pr.outputs.head_sha }}
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+          REVIEWED_SHA: ${{ steps.pr.outputs.head_sha }}
         run: |
           set -euo pipefail
           REVIEW_BODY="$(cat /tmp/local-review.md)"
@@ -119,7 +124,7 @@ jobs:
           gh label create "ai-review-changes-required" --color "D93F0B" --description "AI review found changes required" --force
           gh label create "ai-review-paused" --color "BFD4F2" --description "AI review paused" --force
           for L in ai-review-ready ai-review-changes-required ai-review-paused; do
-            gh api --method DELETE "repos/\${{ github.repository }}/issues/$PR_NUMBER/labels/$L" >/dev/null 2>&1 || true
+            gh api --method DELETE "repos/${{ github.repository }}/issues/$PR_NUMBER/labels/$L" >/dev/null 2>&1 || true
           done
           if printf "%s" "$REVIEW_BODY" | grep -q "CHANGES REQUIRED"; then
             gh issue edit "$PR_NUMBER" --add-label ai-review-changes-required
@@ -133,8 +138,8 @@ jobs:
         if: failure() && steps.pr.outputs.number != ''
         shell: bash
         env:
-          GH_TOKEN: \${{ github.token }}
-          PR_NUMBER: \${{ steps.pr.outputs.number }}
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
         run: |
           gh label create "ai-review-paused" --color "BFD4F2" --description "AI review paused" --force
           gh issue edit "$PR_NUMBER" --add-label ai-review-paused
