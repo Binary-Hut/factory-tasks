@@ -336,8 +336,8 @@ test('Developer and Reviewer dispatch use the extensible agent catalog', () => {
   assert.match(settings, /reviewer: String\(body\.reviewer/);
   assert.match(actions, /configuredAgent\(project, 'developer'\)/);
   assert.match(actions, /configuredAgent\(project, 'reviewer'\)/);
-  assert.match(actions, /model: developer\.model/);
-  assert.match(actions, /model: reviewer\.model/);
+  assert.match(actions, /developer\.runtime_model \? '' : developer\.model/);
+  assert.match(actions, /reviewer\.runtime_model \? '' : reviewer\.model/);
   assert.match(developer, /model: \$\{\{ inputs\.model \}\}/);
   assert.match(reviewer, /gemini_model: \$\{\{ inputs\.model \}\}/);
   assert.doesNotMatch(reviewer, /pull_request:\s*\n/);
