@@ -1,5 +1,5 @@
 const { getConfig, isConfigured, readSession } = require('../lib/factory-auth');
-const registry = require('../.factory/projects.json');
+const bundledRegistry = require('../.factory/projects.json');
 
 async function github(url, token, options = {}) {
   const response = await fetch(url, {
@@ -14,6 +14,16 @@ async function github(url, token, options = {}) {
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data.message || `GitHub returned ${response.status}`);
   return data;
+}
+
+
+async function loadRegistry(token) {
+  try {
+    const file = await github('https://api.github.com/repos/Binary-Hut/factory-tasks/contents/.factory/projects.json?ref=main', token);
+    return JSON.parse(Buffer.from(String(file.content || '').replace(/\n/g, ''), 'base64').toString('utf8'));
+  } catch (_) {
+    return bundledRegistry;
+  }
 }
 
 function sameOrigin(req) {
@@ -49,6 +59,7 @@ module.exports = async function handler(req, res) {
   }
   const repository = String(body.repository || '').trim();
   const request = String(body.request || '').trim();
+  const registry = await loadRegistry(session.token);
   const project = (registry.projects || []).find((item) => item.repository === repository);
   if (!project) return res.status(400).json({ error: 'Choose a registered factory project.' });
   if (request.length < 5 || request.length > 50000) return res.status(400).json({ error: 'Task request must be between 5 and 50,000 characters.' });
