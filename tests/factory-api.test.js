@@ -380,3 +380,14 @@ test('production deployment is an authenticated explicit provider dispatch', () 
   assert.doesNotMatch(verification, /push:\s*\n/);
   assert.match(productionTests, /process\.env\.LIVE_URL/);
 });
+
+
+test('project registry validator rejects agent IDs not present in the agent catalog', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const source = fs.readFileSync(path.resolve(__dirname, '../.factory/validate-projects.mjs'), 'utf8');
+  assert.match(source, /readJson\('\.factory\/agents\.json'\)/);
+  assert.match(source, /const allowedAgents = Object\.fromEntries/);
+  assert.match(source, /allowedAgents\[role\]\.has\(project\.agents\[role\]\)/);
+  assert.match(source, /references unknown catalog option/);
+});

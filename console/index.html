@@ -372,9 +372,10 @@
       <article class="panel">
         <h2>What this console can do today</h2>
         <div class="note">
-          It can read the factory's current state, translate technical workflow results into plain language,
-          show open work, and prepare a new task. Secure actions such as approve, retry, run an AI agent,
-          and merge will be added through server-side controls so no GitHub secret is ever exposed in the browser.
+          It can create and register projects, create project tasks, show lifecycle state and AI usage,
+          approve plans, explicitly start or retry configured AI stages, prepare independent review,
+          merge only after passing review and deterministic checks, and separately request production deployment.
+          Privileged actions remain server-side so reusable GitHub credentials are never exposed in the browser.
         </div>
       </article>
     </section>
@@ -393,12 +394,25 @@
       ).join('');
     }
 
+    function projectSetupNote(project) {
+      const selected = ['planner', 'developer', 'reviewer']
+        .map((role) => (agentCatalog.roles?.[role]?.options || []).find((option) => option.id === project.agents?.[role]))
+        .filter(Boolean);
+      if (selected.some((option) => option.provider === 'local')) {
+        return '<div class="note" style="margin-top:10px"><strong>Local agent setup required:</strong> connect an authorized self-hosted runner and configure this project\'s local runtime/model before starting a local AI stage. The Factory will not fall back to a cloud model.</div>';
+      }
+      return '';
+    }
+
     const friendlyWorkflowNames = {
       "Run Tests": "Automated tests",
       "Deploy Production": "Production deployment",
       "Verify Production Site": "Live-site check",
       "Gemini PR Reviewer": "AI review",
+      "Local LLM PR Reviewer": "Local AI review",
       "Codex Feature Developer": "AI developer",
+      "Local LLM Feature Developer": "Local AI developer",
+      "Local LLM Task Planner": "Local AI planner",
       "Codex Auto-Fix on Failure": "Automatic repair",
       "Branch Collision Guard": "Branch safety check"
     };
@@ -493,6 +507,7 @@
             '<label class="item-meta">Reviewer <select class="reviewer-setting" data-repo="' + escapeHtml(project.repository) + '">' +
             agentOptions("reviewer", project.agents?.reviewer) + '</select></label>' +
             '<button class="button save-agent-settings" type="button" data-repo="' + escapeHtml(project.repository) + '">Save agent settings</button></div>' +
+            projectSetupNote(project) +
             '<div class="work-list project-tasks" data-repo="' + escapeHtml(project.repository) + '" style="margin-top:10px"><div class="empty">Loading tasks…</div></div>';
           list.appendChild(item);
         });
