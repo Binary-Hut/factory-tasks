@@ -414,3 +414,16 @@ test('Vercel production workflow creates or links fresh projects non-interactive
   assert.match(workflow, /project\.orgId/);
   assert.doesNotMatch(workflow, /vercel project add .*--yes/);
 });
+
+
+test('public Vercel projects automatically disable Vercel Authentication before deployment', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const workflow = fs.readFileSync(path.resolve(__dirname, '../.factory/workflows/vercel-production.yml'), 'utf8');
+  assert.match(workflow, /FACTORY_PRODUCTION_ACCESS/);
+  assert.match(workflow, /if: env\.FACTORY_PRODUCTION_ACCESS == 'public'/);
+  assert.match(workflow, /method: 'PATCH'/);
+  assert.match(workflow, /JSON\.stringify\(\{ ssoProtection: null \}\)/);
+  assert.match(workflow, /api\.vercel\.com\/v9\/projects/);
+  assert.match(workflow, /Applied public production access policy/);
+});

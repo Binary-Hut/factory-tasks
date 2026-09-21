@@ -43,10 +43,13 @@ reads the Vercel project name from `.factory/deployment.json`, and resolves the
 Vercel project/account IDs at runtime. Shared workflows therefore contain no
 project-specific Vercel IDs or account names.
 
-A `VERCEL_TOKEN` GitHub Actions secret is still required. The workflow creates the
-named Vercel project if it does not yet exist, deploys the exact approved commit,
-checks that public production is not blocked by Vercel Authentication, and then
-runs the optional project-specific `.factory/verify-production.sh` contract.
+A `VERCEL_TOKEN` GitHub Actions secret is still required. The workflow creates or
+links the named Vercel project if it does not yet exist. When
+`.factory/deployment.json` declares `"production_access": "public"`, the workflow
+applies that policy through Vercel's project API before deployment by disabling
+Vercel Authentication for that project. It then deploys the exact approved commit,
+verifies public reachability, and runs the optional project-specific
+`.factory/verify-production.sh` contract.
 
 Missing credentials, inaccessible Vercel projects, and public-access protection are
 classified by the Factory Console as setup requirements rather than source-code
