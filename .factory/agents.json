@@ -15,6 +15,14 @@
           "provider": "google",
           "model": "gemini-3.1-flash-lite",
           "workflow": "gemini-planner.yml"
+        },
+        {
+          "id": "local-llm",
+          "label": "Local LLM",
+          "kind": "ai",
+          "provider": "local",
+          "runtime_model": true,
+          "workflow": "local-llm-planner.yml"
         }
       ]
     },
@@ -27,6 +35,14 @@
           "provider": "openai",
           "model": "gpt-5-mini",
           "workflow": "codex-feature-developer.yml"
+        },
+        {
+          "id": "local-llm",
+          "label": "Local LLM",
+          "kind": "ai",
+          "provider": "local",
+          "runtime_model": true,
+          "workflow": "local-llm-developer.yml"
         }
       ]
     },
@@ -39,6 +55,14 @@
           "provider": "google",
           "model": "gemini-3.1-flash-lite",
           "workflow": "gemini-review.yml"
+        },
+        {
+          "id": "local-llm",
+          "label": "Local LLM",
+          "kind": "ai",
+          "provider": "local",
+          "runtime_model": true,
+          "workflow": "local-llm-review.yml"
         }
       ]
     },
