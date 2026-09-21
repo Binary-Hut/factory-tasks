@@ -34,16 +34,23 @@ A trusted server-side action then:
 
 ## Explicit production deployment
 
-Projects configured for Vercel receive `vercel-production.yml`. The Console
-dispatches it only after a separate owner confirmation; merging does not invoke
-this workflow. The approval is recorded in `.factory/deploy-request.json`, and
-only a change to that marker (or a manual dispatch) starts production. The
-workflow requires the organization secret `VERCEL_TOKEN`,
-uses the `VERCEL_SCOPE` organization variable when set (otherwise the current
-Musical Hut Vercel scope), pins the CLI, verifies HTTP success, and optionally
-runs a project-specific `.factory/verify-production.sh` contract.
+Projects configured for Vercel receive `vercel-production.yml` plus a project-local
+`.factory/deployment.json`. The Console starts production only after a separate
+owner confirmation; merging does not invoke production automatically.
 
-The browser must never contain a GitHub write token.
+The workflow reads the approved source SHA from `.factory/deploy-request.json`,
+reads the Vercel project name from `.factory/deployment.json`, and resolves the
+Vercel project/account IDs at runtime. Shared workflows therefore contain no
+project-specific Vercel IDs or account names.
+
+A `VERCEL_TOKEN` GitHub Actions secret is still required. The workflow creates the
+named Vercel project if it does not yet exist, deploys the exact approved commit,
+checks that public production is not blocked by Vercel Authentication, and then
+runs the optional project-specific `.factory/verify-production.sh` contract.
+
+Missing credentials, inaccessible Vercel projects, and public-access protection are
+classified by the Factory Console as setup requirements rather than source-code
+failures. Secrets remain outside the repository and browser.
 
 ## Why shared and generated files are separated
 
