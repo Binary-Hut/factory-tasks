@@ -54,7 +54,7 @@
       "deployment": {
         "provider": "vercel",
         "workflow": "vercel-production.yml",
-        "live_url": null
+        "live_url": "https://factory-acceptance-app.vercel.app"
       },
       "agents": {
         "planner": "manual-claude",
