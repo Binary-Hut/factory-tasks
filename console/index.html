@@ -411,6 +411,9 @@
       if (run.status !== "completed") {
         return { text: "Running", className: "busy" };
       }
+      if (run.configuration_blocker) {
+        return { text: "Setup required", className: "busy" };
+      }
       if (run.conclusion === "success") {
         return { text: "Passed", className: "good" };
       }
@@ -418,6 +421,32 @@
         return { text: "Skipped", className: "" };
       }
       return { text: "Needs attention", className: "bad" };
+    }
+
+    async function classifySetupBlockers(runs) {
+      const candidates = runs.filter((run) =>
+        run.name === "Deploy Production" &&
+        run.status === "completed" &&
+        run.conclusion === "failure" &&
+        run.jobs_url
+      );
+
+      await Promise.all(candidates.map(async (run) => {
+        try {
+          const jobsData = await getJson(run.jobs_url);
+          const jobs = jobsData.jobs || [];
+          run.configuration_blocker = jobs.some((job) =>
+            (job.steps || []).some((step) =>
+              step.name === "Verify deployment credentials" &&
+              step.conclusion === "failure"
+            )
+          );
+        } catch (_) {
+          run.configuration_blocker = false;
+        }
+      }));
+
+      return runs;
     }
 
     async function loadProjects() {
@@ -776,7 +805,12 @@
       const dot = document.getElementById("health-dot");
 
       const critical = [source, production].filter(Boolean);
-      const hasFailure = critical.some((run) => run.status === "completed" && run.conclusion !== "success");
+      const hasFailure = critical.some((run) =>
+        run.status === "completed" &&
+        run.conclusion !== "success" &&
+        !run.configuration_blocker
+      );
+      const hasSetupBlocker = critical.some((run) => run.configuration_blocker);
       const hasRunning = critical.some((run) => run.status !== "completed");
 
       dot.className = "status-dot";
@@ -785,6 +819,10 @@
         dot.classList.add("bad");
         title.textContent = "Needs attention";
         detail.textContent = "One of the latest safety checks failed. No automatic retry should be assumed.";
+      } else if (hasSetupBlocker) {
+        dot.classList.add("busy");
+        title.textContent = "Setup required";
+        detail.textContent = "Source tests are healthy, but production deployment needs its provider credentials configured before it can run.";
       } else if (hasRunning) {
         dot.classList.add("busy");
         title.textContent = "Work is in progress";
@@ -891,7 +929,7 @@
           getJson(API + "/issues?state=open&per_page=20")
         ]);
 
-        const runs = runsData.workflow_runs || [];
+        const runs = await classifySetupBlockers(runsData.workflow_runs || []);
         renderHealth(runs);
         renderWork(issues, pulls);
         renderRuns(runs);
