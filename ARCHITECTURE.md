@@ -64,4 +64,4 @@ Current control-plane rules:
 - Factory Console OAuth requests the public-repository and workflow permissions needed to provision repositories and their GitHub Actions workflows.
 - New projects are created in the configured Binary Hut organization while the authorized owner identity remains a separate setting.
 - Project lifecycle state is derived from GitHub branches, task plans, pull requests, reviews, dispatch locks, and workflow results rather than duplicated in a separate database.
-- Production deployment is a separate owner-confirmed action. For Vercel, the GitHub workflow requires a server-side `VERCEL_TOKEN`; missing deployment credentials are surfaced as setup requirements rather than source-test failures.
+- Production deployment is a separate owner-confirmed action. For Vercel, each repository carries non-secret `.factory/deployment.json` metadata while the reusable workflow resolves project/account IDs at runtime. The GitHub workflow requires a server-side `VERCEL_TOKEN`; missing credentials, project access, or public-production access are surfaced as setup requirements rather than source-test failures.
