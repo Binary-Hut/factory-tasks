@@ -204,3 +204,26 @@ test('console classifies Vercel project access and public access protection as s
   await page.reload();
   await expect(page.locator('#health-title')).toHaveText('Setup required');
 });
+
+
+test('Console reports current lifecycle capabilities instead of stale future-tense copy', async () => {
+  const source = require('node:fs').readFileSync(require('node:path').resolve(__dirname, '../console/index.html'), 'utf8');
+  expect(source).toContain('approve plans');
+  expect(source).toContain('merge only after passing review and deterministic checks');
+  expect(source).not.toContain('will be added through server-side controls');
+});
+
+test('Console surfaces local-agent setup requirements without cloud fallback', async () => {
+  const source = require('node:fs').readFileSync(require('node:path').resolve(__dirname, '../console/index.html'), 'utf8');
+  expect(source).toContain('function projectSetupNote(project)');
+  expect(source).toContain("option.provider === 'local'");
+  expect(source).toContain('Local agent setup required');
+  expect(source).toContain('will not fall back to a cloud model');
+});
+
+test('Console recognizes local-agent workflow names in automation history', async () => {
+  const source = require('node:fs').readFileSync(require('node:path').resolve(__dirname, '../console/index.html'), 'utf8');
+  expect(source).toContain('"Local LLM Task Planner": "Local AI planner"');
+  expect(source).toContain('"Local LLM Feature Developer": "Local AI developer"');
+  expect(source).toContain('"Local LLM PR Reviewer": "Local AI review"');
+});
