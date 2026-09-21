@@ -15,6 +15,10 @@ const COPY_FILES = [
   ['.factory/workflows/branch-collision-guard.yml', '.github/workflows/branch-collision-guard.yml'],
   ['.factory/workflows/codex-feature-developer.yml', '.github/workflows/codex-feature-developer.yml'],
   ['.factory/workflows/gemini-review.yml', '.github/workflows/gemini-review.yml'],
+  ['.factory/local-llm-client.mjs', '.factory/local-llm-client.mjs'],
+  ['.factory/workflows/local-llm-planner.yml', '.github/workflows/local-llm-planner.yml'],
+  ['.factory/workflows/local-llm-developer.yml', '.github/workflows/local-llm-developer.yml'],
+  ['.factory/workflows/local-llm-review.yml', '.github/workflows/local-llm-review.yml'],
   ['.factory/workflows/vercel-production.yml', '.github/workflows/vercel-production.yml']
 ];
 
