@@ -13,7 +13,7 @@ GitHub remains the source of truth. No secret is stored here.
 
 ## New-project flow
 
-The future Factory Console will collect a simple request:
+The Factory Console collects a simple request:
 
 1. project name
 2. short description
@@ -22,7 +22,7 @@ The future Factory Console will collect a simple request:
 5. Planner / Developer / Reviewer choices
 6. AI-call budget
 
-A trusted server-side action will then:
+A trusted server-side action then:
 
 1. validate the request,
 2. create the GitHub repository,
@@ -30,7 +30,7 @@ A trusted server-side action will then:
 4. generate project-specific PRODUCT / ARCHITECTURE / ROADMAP files,
 5. configure the selected workflow preset,
 6. register the project in `projects.json`,
-7. optionally connect deployment.
+7. register the selected deployment provider so production can later be started through a separate owner-confirmed action.
 
 ## Explicit production deployment
 
