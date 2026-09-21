@@ -1,0 +1,140 @@
+name: Local LLM PR Reviewer
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "Pull request number to review"
+        required: true
+        type: string
+      model:
+        description: "Unused compatibility input; local model comes from LOCAL_LLM_MODEL"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: local-llm-review-\${{ inputs.pr_number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    runs-on: [self-hosted, factory-local-llm]
+    timeout-minutes: 20
+    env:
+      LOCAL_LLM_ADAPTER: \${{ vars.LOCAL_LLM_ADAPTER || 'ollama' }}
+      LOCAL_LLM_MODEL: \${{ vars.LOCAL_LLM_MODEL }}
+      OLLAMA_BASE_URL: \${{ vars.OLLAMA_BASE_URL || 'http://127.0.0.1:11434' }}
+      LOCAL_LLM_HTTP_URL: \${{ vars.LOCAL_LLM_HTTP_URL }}
+      LOCAL_LLM_HTTP_TOKEN: \${{ secrets.LOCAL_LLM_HTTP_TOKEN }}
+    steps:
+      - name: Check local LLM configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$LOCAL_LLM_MODEL" || { echo "LOCAL_LLM_MODEL repository variable is required." >&2; exit 1; }
+          case "$LOCAL_LLM_ADAPTER" in
+            ollama|generic-http) ;;
+            *) echo "LOCAL_LLM_ADAPTER must be ollama or generic-http." >&2; exit 1 ;;
+          esac
+
+      - name: Resolve PR metadata
+        id: pr
+        env:
+          GH_TOKEN: \${{ github.token }}
+          INPUT_PR: \${{ inputs.pr_number }}
+          REPO: \${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          PR_NUMBER="$INPUT_PR"
+          HEAD_REF="$(gh api "repos/$REPO/pulls/$PR_NUMBER" --jq .head.ref)"
+          HEAD_SHA="$(gh api "repos/$REPO/pulls/$PR_NUMBER" --jq .head.sha)"
+          BASE_REF="$(gh api "repos/$REPO/pulls/$PR_NUMBER" --jq .base.ref)"
+          echo "number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+          echo "head_ref=$HEAD_REF" >> "$GITHUB_OUTPUT"
+          echo "head_sha=$HEAD_SHA" >> "$GITHUB_OUTPUT"
+          echo "base_ref=$BASE_REF" >> "$GITHUB_OUTPUT"
+
+      - name: Check out PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: \${{ steps.pr.outputs.head_ref }}
+          fetch-depth: 0
+
+      - name: Build review prompt
+        shell: bash
+        env:
+          BASE_REF: \${{ steps.pr.outputs.base_ref }}
+        run: |
+          set -euo pipefail
+          git fetch origin "$BASE_REF"
+          git diff --no-ext-diff --unified=80 "origin/$BASE_REF"...HEAD > /tmp/local-review.diff
+          {
+            echo "You are the independent Reviewer for \${{ github.repository }}. This is review-only."
+            echo "Check acceptance criteria, regressions, unnecessary complexity, deterministic tests, and repository policy."
+            echo "Return exactly these sections:"
+            echo "## Acceptance criteria check"
+            echo "## Concrete issues found"
+            echo "## Test coverage check"
+            echo "## Policy/scope check"
+            echo "## Merge readiness"
+            echo "In Merge readiness, write exactly READY or CHANGES REQUIRED."
+            for f in AI_POLICY.md AGENTS.md PRODUCT.md ARCHITECTURE.md .ai/roles/REVIEWER.md; do
+              if [ -f "$f" ]; then
+                printf "\n===== %s =====\n" "$f"
+                cat "$f"
+              fi
+            done
+            for f in .ai/tasks/*.md; do
+              if [ -f "$f" ]; then
+                printf "\n===== %s =====\n" "$f"
+                cat "$f"
+              fi
+            done
+            printf "\n===== PULL REQUEST DIFF =====\n"
+            cat /tmp/local-review.diff
+          } > /tmp/local-review-prompt.txt
+
+      - name: Run local Reviewer
+        shell: bash
+        run: node .factory/local-llm-client.mjs "$LOCAL_LLM_ADAPTER" /tmp/local-review-prompt.txt /tmp/local-review.md
+
+      - name: Post review and record state
+        shell: bash
+        env:
+          GH_TOKEN: \${{ github.token }}
+          PR_NUMBER: \${{ steps.pr.outputs.number }}
+          REVIEWED_SHA: \${{ steps.pr.outputs.head_sha }}
+        run: |
+          set -euo pipefail
+          REVIEW_BODY="$(cat /tmp/local-review.md)"
+          printf "## Independent AI review\n\n%s\n\n_Model: %s · local self-hosted review-only workflow_\n\n<!-- factory-reviewed-sha:%s -->\n" "$REVIEW_BODY" "$LOCAL_LLM_MODEL" "$REVIEWED_SHA" > /tmp/review.md
+          gh pr comment "$PR_NUMBER" --body-file /tmp/review.md
+          gh label create "ai-review-ready" --color "0E8A16" --description "AI review passed" --force
+          gh label create "ai-review-changes-required" --color "D93F0B" --description "AI review found changes required" --force
+          gh label create "ai-review-paused" --color "BFD4F2" --description "AI review paused" --force
+          for L in ai-review-ready ai-review-changes-required ai-review-paused; do
+            gh api --method DELETE "repos/\${{ github.repository }}/issues/$PR_NUMBER/labels/$L" >/dev/null 2>&1 || true
+          done
+          if printf "%s" "$REVIEW_BODY" | grep -q "CHANGES REQUIRED"; then
+            gh issue edit "$PR_NUMBER" --add-label ai-review-changes-required
+          elif printf "%s" "$REVIEW_BODY" | grep -q "READY"; then
+            gh issue edit "$PR_NUMBER" --add-label ai-review-ready
+          else
+            gh issue edit "$PR_NUMBER" --add-label ai-review-paused
+          fi
+
+      - name: Pause reviewer after failure
+        if: failure() && steps.pr.outputs.number != ''
+        shell: bash
+        env:
+          GH_TOKEN: \${{ github.token }}
+          PR_NUMBER: \${{ steps.pr.outputs.number }}
+        run: |
+          gh label create "ai-review-paused" --color "BFD4F2" --description "AI review paused" --force
+          gh issue edit "$PR_NUMBER" --add-label ai-review-paused
