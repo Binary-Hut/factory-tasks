@@ -20,7 +20,6 @@ jobs:
     timeout-minutes: 20
     env:
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-      VERCEL_SCOPE: ${{ vars.VERCEL_SCOPE || 'musichutonline-3481' }}
       VERCEL_PROJECT_NAME: ${{ github.event.repository.name }}
     steps:
       - name: Check out deployment request
@@ -54,7 +53,7 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "$VERCEL_TOKEN" ]; then
-            echo "::error::Vercel deployment requires the VERCEL_TOKEN organization secret."
+            echo "::error::Vercel deployment requires the VERCEL_TOKEN repository or organization secret."
             exit 1
           fi
 
@@ -66,20 +65,18 @@ jobs:
       - name: Install pinned Vercel CLI
         run: npm install --global vercel@50.1.0
 
-      - name: Ensure the Vercel project exists
+      - name: Verify Vercel project access
         shell: bash
         run: |
           set -euo pipefail
-          if ! vercel project inspect "$VERCEL_PROJECT_NAME" --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN" >/dev/null 2>&1; then
-            vercel project add "$VERCEL_PROJECT_NAME" --yes --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN"
-          fi
+          vercel project inspect "$VERCEL_PROJECT_NAME" --token "$VERCEL_TOKEN" >/dev/null
 
       - name: Deploy approved main commit to production
         id: deploy
         shell: bash
         run: |
           set -euo pipefail
-          URL="$(vercel deploy --prod --yes --scope "$VERCEL_SCOPE" --project "$VERCEL_PROJECT_NAME" --token "$VERCEL_TOKEN")"
+          URL="$(vercel deploy --prod --yes --project "$VERCEL_PROJECT_NAME" --token "$VERCEL_TOKEN")"
           echo "url=$URL" >> "$GITHUB_OUTPUT"
           echo "Production deployment: $URL" >> "$GITHUB_STEP_SUMMARY"
 
