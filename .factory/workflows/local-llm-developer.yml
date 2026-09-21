@@ -1,0 +1,210 @@
+name: Local LLM Feature Developer
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Feature branch to implement"
+        required: true
+        type: string
+      plan_path:
+        description: "Approved task plan file"
+        required: true
+        type: string
+      model:
+        description: "Unused compatibility input; local model comes from LOCAL_LLM_MODEL"
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: local-llm-feature-developer-\${{ inputs.branch }}
+  cancel-in-progress: false
+
+jobs:
+  develop:
+    runs-on: [self-hosted, factory-local-llm]
+    timeout-minutes: 40
+    env:
+      LOCAL_LLM_ADAPTER: \${{ vars.LOCAL_LLM_ADAPTER || 'ollama' }}
+      LOCAL_LLM_MODEL: \${{ vars.LOCAL_LLM_MODEL }}
+      OLLAMA_BASE_URL: \${{ vars.OLLAMA_BASE_URL || 'http://127.0.0.1:11434' }}
+      LOCAL_LLM_HTTP_URL: \${{ vars.LOCAL_LLM_HTTP_URL }}
+      LOCAL_LLM_HTTP_TOKEN: \${{ secrets.LOCAL_LLM_HTTP_TOKEN }}
+    steps:
+      - name: Check local LLM configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$LOCAL_LLM_MODEL" || { echo "LOCAL_LLM_MODEL repository variable is required." >&2; exit 1; }
+          case "$LOCAL_LLM_ADAPTER" in
+            ollama|generic-http) ;;
+            *) echo "LOCAL_LLM_ADAPTER must be ollama or generic-http." >&2; exit 1 ;;
+          esac
+
+      - name: Check out feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: \${{ inputs.branch }}
+          fetch-depth: 0
+
+      - name: Verify approved plan exists
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f "\${{ inputs.plan_path }}" || { echo "Plan file not found." >&2; exit 1; }
+          grep -Eq "Status: (READY_FOR_DEVELOPMENT|READY_FOR_RETRY|READY_FOR_CORRECTION)" "\${{ inputs.plan_path }}" || {
+            echo "Plan must be READY_FOR_DEVELOPMENT, READY_FOR_RETRY, or READY_FOR_CORRECTION." >&2
+            exit 1
+          }
+
+      - name: Mark developer stage active
+        shell: bash
+        env:
+          PLAN_PATH: \${{ inputs.plan_path }}
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import os
+          p = Path(os.environ["PLAN_PATH"])
+          t = p.read_text()
+          for source in ("READY_FOR_DEVELOPMENT", "READY_FOR_RETRY", "READY_FOR_CORRECTION"):
+              marker = f"Status: {source}"
+              if marker in t:
+                  p.write_text(t.replace(marker, "Status: DEVELOPING", 1))
+                  break
+          else:
+              raise SystemExit("Task is not startable.")
+          PY
+
+      - name: Build compact repository context
+        shell: bash
+        env:
+          PLAN_PATH: \${{ inputs.plan_path }}
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import os
+          allow = {'.md','.txt','.html','.css','.js','.mjs','.cjs','.ts','.tsx','.jsx','.json','.yml','.yaml','.py','.sh','.toml'}
+          max_file = 60000
+          max_total = 240000
+          total = 0
+          blocks = []
+          priority = ['AI_POLICY.md','AGENTS.md','PRODUCT.md','ARCHITECTURE.md','.ai/roles/DEVELOPER.md',os.environ['PLAN_PATH']]
+          seen = set()
+          files = [Path(p) for p in priority if Path(p).is_file()]
+          files += [p for p in Path('.').rglob('*') if p.is_file() and '.git' not in p.parts and 'node_modules' not in p.parts and p.suffix.lower() in allow]
+          for p in files:
+              s = str(p)
+              if s in seen:
+                  continue
+              seen.add(s)
+              try:
+                  text = p.read_text()
+              except Exception:
+                  continue
+              if len(text) > max_file:
+                  continue
+              block = f"\n===== {s} =====\n{text}\n"
+              if total + len(block) > max_total:
+                  continue
+              blocks.append(block)
+              total += len(block)
+          Path('/tmp/local-dev-context.txt').write_text(''.join(blocks))
+          PY
+
+      - name: Ask local Developer for patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "You are the Developer for \${{ github.repository }}."
+            echo "Implement only the approved plan and preserve the documented architecture."
+            echo "Do not add unapproved auth, payments, databases, external APIs, paid services, dependencies, frameworks, or deployment changes."
+            echo "Add or update deterministic tests and .factory/test.sh when behavior changes."
+            echo "Return ONLY a valid git unified diff beginning with diff --git. No prose."
+            cat /tmp/local-dev-context.txt
+          } > /tmp/local-dev-prompt.txt
+          node .factory/local-llm-client.mjs "$LOCAL_LLM_ADAPTER" /tmp/local-dev-prompt.txt /tmp/local.patch
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('/tmp/local.patch')
+          t = p.read_text().strip()
+          if not t.startswith('diff --git '):
+              raise SystemExit('Local Developer did not return a unified diff.')
+          p.write_text(t + '\n')
+          PY
+          git apply --whitespace=fix /tmp/local.patch
+
+      - name: Ensure local Developer made changes
+        shell: bash
+        run: |
+          if git diff --quiet; then echo "Local Developer made no changes." >&2; exit 1; fi
+          git status --short
+
+      - name: Preserve generated implementation before validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Preserve local LLM implementation pending validation"
+          git push origin HEAD:"\${{ inputs.branch }}"
+
+      - name: Run deterministic validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f .factory/test.sh || { echo "Implementation must provide .factory/test.sh." >&2; exit 1; }
+          chmod +x .factory/test.sh
+          ./.factory/test.sh
+
+      - name: Advance plan status
+        shell: bash
+        env:
+          PLAN_PATH: \${{ inputs.plan_path }}
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import os
+          p = Path(os.environ["PLAN_PATH"])
+          t = p.read_text()
+          if "Status: DEVELOPING" not in t:
+              raise SystemExit("Expected DEVELOPING status.")
+          p.write_text(t.replace("Status: DEVELOPING", "Status: READY_FOR_REVIEW", 1))
+          PY
+
+      - name: Mark validated implementation ready for review
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "\${{ inputs.plan_path }}"
+          git commit -m "Mark validated implementation ready for review"
+          git push origin HEAD:"\${{ inputs.branch }}"
+
+      - name: Pause task if developer stage fails
+        if: failure()
+        shell: bash
+        env:
+          PLAN_PATH: \${{ inputs.plan_path }}
+        run: |
+          if [ ! -f "$PLAN_PATH" ]; then exit 0; fi
+          python - <<'PY'
+          from pathlib import Path
+          import os
+          p = Path(os.environ["PLAN_PATH"])
+          t = p.read_text()
+          if "Status: DEVELOPING" in t:
+              p.write_text(t.replace("Status: DEVELOPING", "Status: PAUSED_AI_FAILURE", 1))
+          PY
+          if git diff --quiet -- "$PLAN_PATH"; then exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$PLAN_PATH"
+          git commit -m "Pause AI task after failed local developer run"
+          git push origin HEAD:"\${{ inputs.branch }}" || true
