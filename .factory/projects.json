@@ -44,6 +44,28 @@
         "reviewer_calls_per_stage": 1,
         "automatic_retries": 0
       }
+    },
+    {
+      "id": "factory-acceptance-app",
+      "name": "Factory Acceptance App",
+      "repository": "Binary-Hut/factory-acceptance-app",
+      "project_type": "static-web",
+      "lifecycle_status": "active",
+      "deployment": {
+        "provider": "vercel",
+        "workflow": "vercel-production.yml",
+        "live_url": null
+      },
+      "agents": {
+        "planner": "manual-claude",
+        "developer": "codex",
+        "reviewer": "gemini"
+      },
+      "ai_budget": {
+        "developer_calls_per_stage": 1,
+        "reviewer_calls_per_stage": 1,
+        "automatic_retries": 0
+      }
     }
   ]
 }
