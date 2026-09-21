@@ -20,7 +20,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: local-llm-task-planner-\${{ inputs.branch }}
+  group: local-llm-task-planner-${{ inputs.branch }}
   cancel-in-progress: false
 
 jobs:
@@ -28,11 +28,11 @@ jobs:
     runs-on: [self-hosted, factory-local-llm]
     timeout-minutes: 20
     env:
-      LOCAL_LLM_ADAPTER: \${{ vars.LOCAL_LLM_ADAPTER || 'ollama' }}
-      LOCAL_LLM_MODEL: \${{ vars.LOCAL_LLM_MODEL }}
-      OLLAMA_BASE_URL: \${{ vars.OLLAMA_BASE_URL || 'http://127.0.0.1:11434' }}
-      LOCAL_LLM_HTTP_URL: \${{ vars.LOCAL_LLM_HTTP_URL }}
-      LOCAL_LLM_HTTP_TOKEN: \${{ secrets.LOCAL_LLM_HTTP_TOKEN }}
+      LOCAL_LLM_ADAPTER: ${{ vars.LOCAL_LLM_ADAPTER || 'ollama' }}
+      LOCAL_LLM_MODEL: ${{ vars.LOCAL_LLM_MODEL }}
+      OLLAMA_BASE_URL: ${{ vars.OLLAMA_BASE_URL || 'http://127.0.0.1:11434' }}
+      LOCAL_LLM_HTTP_URL: ${{ vars.LOCAL_LLM_HTTP_URL }}
+      LOCAL_LLM_HTTP_TOKEN: ${{ secrets.LOCAL_LLM_HTTP_TOKEN }}
     steps:
       - name: Check local LLM configuration
         shell: bash
@@ -47,15 +47,20 @@ jobs:
       - name: Check out task branch
         uses: actions/checkout@v4
         with:
-          ref: \${{ inputs.branch }}
+          ref: ${{ inputs.branch }}
           fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
 
       - name: Verify task needs planning
         shell: bash
         run: |
           set -euo pipefail
-          test -f "\${{ inputs.plan_path }}" || { echo "Plan file not found." >&2; exit 1; }
-          grep -q "Status: NEEDS_PLANNING" "\${{ inputs.plan_path }}" || {
+          test -f "${{ inputs.plan_path }}" || { echo "Plan file not found." >&2; exit 1; }
+          grep -q "Status: NEEDS_PLANNING" "${{ inputs.plan_path }}" || {
             echo "Task must be NEEDS_PLANNING." >&2
             exit 1
           }
@@ -63,11 +68,11 @@ jobs:
       - name: Build planner prompt
         shell: bash
         env:
-          PLAN_PATH: \${{ inputs.plan_path }}
+          PLAN_PATH: ${{ inputs.plan_path }}
         run: |
           set -euo pipefail
           {
-            echo "You are the Planner for \${{ github.repository }}."
+            echo "You are the Planner for ${{ github.repository }}."
             echo "Plan only the owner's task. Do not implement code or broaden scope."
             echo "Respect AI_POLICY.md, product scope, architecture, security, dependency, and deployment rules."
             echo "Return only the complete Markdown replacement for the task plan."
@@ -88,7 +93,7 @@ jobs:
       - name: Validate and save proposed plan
         shell: bash
         env:
-          PLAN_PATH: \${{ inputs.plan_path }}
+          PLAN_PATH: ${{ inputs.plan_path }}
         run: |
           set -euo pipefail
           cp /tmp/local-plan.md "$PLAN_PATH"
@@ -103,6 +108,6 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add "\${{ inputs.plan_path }}"
+          git add "${{ inputs.plan_path }}"
           git commit -m "Prepare task plan for owner approval"
-          git push origin HEAD:"\${{ inputs.branch }}"
+          git push origin HEAD:"${{ inputs.branch }}"
