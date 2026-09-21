@@ -23,8 +23,7 @@ one device.
 - **Storage:** Browser `localStorage`, under the key `factory-tasks-v1`
 - **Data shape:** an array of task objects, each `{ id, text, done }`
 - **No backend, no API, no database**
-- **Deployment target (future phase):** any static file host (e.g. Vercel) — because
-  the app is just one static file, deployment is "upload the file," nothing more
+- **Deployment:** Vercel, through a separate owner-approved production workflow. The root app remains a static file, so the product itself has no runtime backend dependency
 
 ## Why this architecture
 
@@ -62,4 +61,7 @@ Current control-plane rules:
 - Only the configured GitHub owner account may provision projects.
 - Project creation does not automatically run a paid AI model.
 - No database is required; GitHub remains the source of truth.
-- The initial OAuth permission is limited to public-repository operations.
+- Factory Console OAuth requests the public-repository and workflow permissions needed to provision repositories and their GitHub Actions workflows.
+- New projects are created in the configured Binary Hut organization while the authorized owner identity remains a separate setting.
+- Project lifecycle state is derived from GitHub branches, task plans, pull requests, reviews, dispatch locks, and workflow results rather than duplicated in a separate database.
+- Production deployment is a separate owner-confirmed action. For Vercel, the GitHub workflow requires a server-side `VERCEL_TOKEN`; missing deployment credentials are surfaced as setup requirements rather than source-test failures.
