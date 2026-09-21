@@ -35,7 +35,7 @@
         "live_url": "https://practice-timer-navy.vercel.app"
       },
       "agents": {
-        "planner": "manual-claude",
+        "planner": "gemini",
         "developer": "codex",
         "reviewer": "gemini"
       },
