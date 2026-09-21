@@ -3,7 +3,7 @@ const path = require('path');
 
 const CONSOLE_URL = 'file://' + path.resolve(__dirname, '../console/index.html');
 
-function mockGitHub(page, { failed = false } = {}) {
+function mockGitHub(page, { failed = false, deploymentSetupBlocked = false } = {}) {
   return page.route('https://api.github.com/**', async (route) => {
     const url = route.request().url();
 
@@ -20,8 +20,9 @@ function mockGitHub(page, { failed = false } = {}) {
           name: 'Deploy Production',
           head_branch: 'main',
           status: 'completed',
-          conclusion: 'success',
-          html_url: 'https://github.com/example/production'
+          conclusion: deploymentSetupBlocked ? 'failure' : 'success',
+          html_url: 'https://github.com/example/production',
+          jobs_url: 'https://api.github.com/repos/example/factory/actions/runs/2/jobs'
         }
       ];
 
@@ -30,6 +31,21 @@ function mockGitHub(page, { failed = false } = {}) {
         contentType: 'application/json',
         headers: { 'Access-Control-Allow-Origin': '*' },
         body: JSON.stringify({ workflow_runs })
+      });
+    }
+
+    if (url.includes('/actions/runs/2/jobs')) {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        headers: { 'Access-Control-Allow-Origin': '*' },
+        body: JSON.stringify({
+          jobs: [{
+            steps: deploymentSetupBlocked
+              ? [{ name: 'Verify deployment credentials', conclusion: 'failure' }]
+              : []
+          }]
+        })
       });
     }
 
@@ -98,6 +114,15 @@ test('console surfaces failed critical checks as needing attention', async ({ pa
 
   await expect(page.locator('#health-title')).toHaveText('Needs attention');
   await expect(page.locator('#health-detail')).toContainText('failed');
+});
+
+test('console separates missing deployment credentials from code failures', async ({ page }) => {
+  await mockGitHub(page, { deploymentSetupBlocked: true });
+  await page.goto(CONSOLE_URL);
+
+  await expect(page.locator('#health-title')).toHaveText('Setup required');
+  await expect(page.locator('#health-detail')).toContainText('provider credentials');
+  await expect(page.locator('#recent-runs')).toContainText('Setup required');
 });
 
 
