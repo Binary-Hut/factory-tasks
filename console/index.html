@@ -394,6 +394,17 @@
       ).join('');
     }
 
+    function projectLiveUrl(project) {
+      if (project?.deployment?.live_url) return project.deployment.live_url;
+      if (project?.deployment?.provider === "vercel") {
+        const slug = String(project.id || project.repository?.split("/").pop() || "").trim().toLowerCase();
+        if (/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(slug)) {
+          return "https://" + slug + ".vercel.app";
+        }
+      }
+      return "";
+    }
+
     function projectSetupNote(project) {
       const selected = ['planner', 'developer', 'reviewer']
         .map((role) => (agentCatalog.roles?.[role]?.options || []).find((option) => option.id === project.agents?.[role]))
@@ -483,8 +494,9 @@
           const item = document.createElement("div");
           item.className = "item";
           const repoUrl = "https://github.com/" + project.repository;
-          const deployment = project.deployment && project.deployment.live_url
-            ? '<a class="button" href="' + project.deployment.live_url + '" target="_blank" rel="noreferrer">Open live app</a>'
+          const liveUrl = projectLiveUrl(project);
+          const deployment = liveUrl
+            ? '<a class="button" href="' + escapeHtml(liveUrl) + '" target="_blank" rel="noreferrer">Open live app</a>'
             : "";
           const deployAction = project.deployment?.provider && project.deployment.provider !== "none"
             ? '<button class="button deploy-project-btn" type="button" data-repo="' + escapeHtml(project.repository) + '" data-provider="' + escapeHtml(project.deployment.provider) + '">Deploy production</button>'

@@ -227,3 +227,19 @@ test('Console recognizes local-agent workflow names in automation history', asyn
   expect(source).toContain('"Local LLM Feature Developer": "Local AI developer"');
   expect(source).toContain('"Local LLM PR Reviewer": "Local AI review"');
 });
+
+
+test('Console shows a live-app link for Vercel projects even before live_url is recorded', async () => {
+  const source = require('node:fs').readFileSync(require('node:path').resolve(__dirname, '../console/index.html'), 'utf8');
+  expect(source).toContain('function projectLiveUrl(project)');
+  expect(source).toContain('project?.deployment?.provider === "vercel"');
+  expect(source).toContain('".vercel.app"');
+  expect(source).toContain('const liveUrl = projectLiveUrl(project)');
+  expect(source).toContain('>Open live app</a>');
+});
+
+test('Factory Acceptance App registry records its verified production URL', async () => {
+  const registry = require('../.factory/projects.json');
+  const project = registry.projects.find((item) => item.id === 'factory-acceptance-app');
+  expect(project.deployment.live_url).toBe('https://factory-acceptance-app.vercel.app');
+});
