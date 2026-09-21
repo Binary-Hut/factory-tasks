@@ -683,7 +683,7 @@
                 body: JSON.stringify({ action: "prepare-review", repository: button.dataset.repo, branch: button.dataset.branch, plan_path: button.dataset.plan }) });
               const data = await response.json();
               if (!response.ok) throw new Error(data.error || "Could not prepare review.");
-              await loadProjectTasks(button.dataset.repo);
+              await loadProjectTasks(container);
             } catch (error) { button.disabled = false; button.textContent = "Prepare review (no AI)"; alert(error.message); }
           });
         });

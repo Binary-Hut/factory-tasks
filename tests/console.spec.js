@@ -243,3 +243,10 @@ test('Factory Acceptance App registry records its verified production URL', asyn
   const project = registry.projects.find((item) => item.id === 'factory-acceptance-app');
   expect(project.deployment.live_url).toBe('https://factory-acceptance-app.vercel.app');
 });
+
+
+test('Prepare review refreshes the current task container after success', async () => {
+  const source = require('node:fs').readFileSync(require('node:path').resolve(__dirname, '../console/index.html'), 'utf8');
+  expect(source).toContain('await loadProjectTasks(container);');
+  expect(source).not.toContain('await loadProjectTasks(button.dataset.repo);');
+});
