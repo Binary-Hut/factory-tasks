@@ -44,3 +44,17 @@ agent or automatically retried.
 ## Reusable deployment configuration
 
 New Factory-managed projects keep non-secret provider metadata in `.factory/deployment.json`. Shared deployment workflows resolve provider project identifiers at runtime, so cloning the Factory does not copy Factory Tasks-specific Vercel IDs into another project.
+
+
+## Local/self-hosted agents
+
+The Factory can use a local model as an independent Planner, Developer, or
+Reviewer. Local inference does not require an OpenAI, Google, or Anthropic
+account. It runs on a dedicated GitHub self-hosted runner labeled
+`factory-local-llm` and talks directly to the configured local runtime.
+
+The initial adapters are native Ollama and a small Factory-owned generic HTTP
+contract. Projects choose the local runtime/model through repository variables,
+so adding or changing a local model does not require changing Factory source.
+Cloud providers remain optional alternatives and the Factory never silently
+falls back from a local agent to a cloud model.

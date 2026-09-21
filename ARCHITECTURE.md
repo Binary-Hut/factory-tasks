@@ -65,3 +65,22 @@ Current control-plane rules:
 - New projects are created in the configured Binary Hut organization while the authorized owner identity remains a separate setting.
 - Project lifecycle state is derived from GitHub branches, task plans, pull requests, reviews, dispatch locks, and workflow results rather than duplicated in a separate database.
 - Production deployment is a separate owner-confirmed action. For Vercel, each repository carries non-secret `.factory/deployment.json` metadata while the reusable workflow resolves project/account IDs at runtime. The GitHub workflow requires a server-side `VERCEL_TOKEN`; missing credentials, project access, or public-production access are surfaced as setup requirements rather than source-test failures.
+
+
+## Local/self-hosted AI providers
+
+Agent providers are catalog entries, not assumptions baked into the lifecycle.
+Cloud providers and local providers are peers. A project may select the
+`local-llm` option independently for Planner, Developer, or Reviewer.
+
+Local-agent jobs execute only on a self-hosted runner labeled
+`factory-local-llm`. The runner talks directly to the configured local runtime.
+The initial native adapter is Ollama; a separate generic Factory HTTP contract
+supports other local runtimes without depending on OpenAI APIs or credentials.
+Model names are supplied at project runtime through repository variables rather
+than hardcoded into Factory source.
+
+Because a self-hosted runner has access to the machine and local network, it must
+be treated as privileged infrastructure: use a dedicated low-privilege host or
+container, restrict repository access, and do not store unrelated personal or
+business secrets on that runner.

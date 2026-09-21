@@ -81,3 +81,30 @@ Actions secrets can now be centralized at the Binary Hut organization level and 
 Implemented projects use `.factory/test.sh` as the single CI entry point for deterministic validation. The shared workflows do not assume Node, npm, Playwright, Python, mobile, or any other stack. Each project's script is responsible for installing or invoking only the tooling approved for that project and returning a non-zero exit code on failure.
 
 Planning-only repositories may temporarily omit the script. Before an implementation can advance to review, the developer workflow requires the script to exist and pass.
+
+
+## Independent local LLM agents
+
+The Factory supports a first-class `local-llm` agent choice for Planner,
+Developer, and Reviewer. This path does not require OpenAI, Gemini, Claude, or
+any other cloud AI provider.
+
+Local inference runs on a GitHub self-hosted runner carrying the dedicated
+`factory-local-llm` label. Keep that runner isolated and low-privilege, and
+limit it to the repositories that should be allowed to execute local-agent jobs.
+
+Per project, configure repository variables:
+
+- `LOCAL_LLM_ADAPTER` — `ollama` or `generic-http` (defaults to `ollama`).
+- `LOCAL_LLM_MODEL` — the local model name understood by the selected runtime.
+- `OLLAMA_BASE_URL` — optional; defaults to `http://127.0.0.1:11434`.
+- `LOCAL_LLM_HTTP_URL` — required only for the generic local HTTP adapter.
+
+If the generic HTTP endpoint needs authentication, store it only as the
+`LOCAL_LLM_HTTP_TOKEN` Actions secret. The generic adapter uses a Factory-owned
+local protocol: POST JSON `{"model":"...","prompt":"..."}` and expects
+`{"text":"..."}`. It is not an OpenAI protocol dependency.
+
+Selecting a local agent never starts it automatically. The same owner approval
+gates, AI-call accounting, deterministic tests, review requirements, and
+no-automatic-retry policy apply exactly as they do to cloud agents.

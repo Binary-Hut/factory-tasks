@@ -39,6 +39,8 @@ and inexpensive.
   necessary for diagnosis.
 - Reuse existing CI failure output whenever possible.
 - Production verification must not invoke an AI model automatically.
+- Local/self-hosted model calls follow the same approval, retry, and accounting limits as paid cloud model calls.
+- Local agents must run only on an explicitly authorized self-hosted runner; never silently fall back from local to a cloud provider.
 - Documentation-only or configuration-only failures should not invoke an AI
   repair unless explicitly enabled later.
 - Do not use premium/high-cost models automatically.
