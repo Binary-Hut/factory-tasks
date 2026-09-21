@@ -21,8 +21,6 @@ jobs:
     env:
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       VERCEL_PROJECT_NAME: ${{ github.event.repository.name }}
-      VERCEL_ORG_ID: team_3vPclbemLP1MZeIe8NpOtkiJ
-      VERCEL_PROJECT_ID: prj_uroJlt4DDPvd3ZOpacn0FUIM6zIr
     steps:
       - name: Check out deployment request
         uses: actions/checkout@v4
@@ -50,6 +48,22 @@ jobs:
           SOURCE_SHA: ${{ steps.request.outputs.source_sha }}
         run: git checkout --detach "$SOURCE_SHA"
 
+      - name: Load deployment configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f .factory/deployment.json ]; then
+            PROVIDER="$(node -e "const c=require('./.factory/deployment.json'); process.stdout.write(String(c.provider || ''))")"
+            PROJECT_NAME="$(node -e "const c=require('./.factory/deployment.json'); process.stdout.write(String(c.project_name || ''))")"
+            if [ "$PROVIDER" != "vercel" ]; then
+              echo "::error::This workflow requires provider=vercel in .factory/deployment.json."
+              exit 1
+            fi
+            if [ -n "$PROJECT_NAME" ]; then
+              echo "VERCEL_PROJECT_NAME=$PROJECT_NAME" >> "$GITHUB_ENV"
+            fi
+          fi
+
       - name: Verify deployment credentials
         shell: bash
         run: |
@@ -71,7 +85,27 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          vercel project inspect "$VERCEL_PROJECT_NAME" --token "$VERCEL_TOKEN" >/dev/null
+          if ! vercel project inspect "$VERCEL_PROJECT_NAME" --token "$VERCEL_TOKEN" >/dev/null 2>&1; then
+            vercel project add "$VERCEL_PROJECT_NAME" --yes --token "$VERCEL_TOKEN"
+          fi
+          node <<'NODE'
+          const name = process.env.VERCEL_PROJECT_NAME;
+          const token = process.env.VERCEL_TOKEN;
+          const response = await fetch('https://api.vercel.com/v9/projects/' + encodeURIComponent(name), {
+            headers: { Authorization: 'Bearer ' + token }
+          });
+          if (!response.ok) {
+            console.error('::error::Vercel project metadata could not be resolved (' + response.status + ').');
+            process.exit(1);
+          }
+          const project = await response.json();
+          if (!project.id || !project.accountId) {
+            console.error('::error::Vercel project metadata did not include project/account IDs.');
+            process.exit(1);
+          }
+          require('fs').appendFileSync(process.env.GITHUB_ENV,
+            'VERCEL_PROJECT_ID=' + project.id + '\nVERCEL_ORG_ID=' + project.accountId + '\n');
+          NODE
 
       - name: Deploy approved main commit to production
         id: deploy
@@ -82,17 +116,23 @@ jobs:
           echo "url=$URL" >> "$GITHUB_OUTPUT"
           echo "Production deployment: $URL" >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Verify production response
+      - name: Verify public production access
         env:
           DEPLOYMENT_URL: ${{ steps.deploy.outputs.url }}
         shell: bash
         run: |
           set -euo pipefail
+          BODY="$(mktemp)"
+          trap 'rm -f "$BODY"' EXIT
           for attempt in {1..18}; do
-            STATUS="$(curl -L -s -o /dev/null -w '%{http_code}' "$DEPLOYMENT_URL")"
+            STATUS="$(curl -L -s -o "$BODY" -w '%{http_code}' "$DEPLOYMENT_URL")"
+            if grep -qiE 'Log in to Vercel|vercel.*authentication' "$BODY"; then
+              echo "::error::Production is behind Vercel Authentication. Disable project-level Vercel Authentication for public production verification, or add an explicit protected-site verification contract."
+              exit 1
+            fi
             if [ "$STATUS" = "200" ]; then
-              echo "Production is responding successfully." >> "$GITHUB_STEP_SUMMARY"
-              break
+              echo "Production is publicly reachable." >> "$GITHUB_STEP_SUMMARY"
+              exit 0
             fi
             if [ "$attempt" = "18" ]; then
               echo "::error::Production did not return HTTP 200 in time."
@@ -101,6 +141,12 @@ jobs:
             sleep 10
           done
 
+      - name: Run project production verification
+        env:
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.url }}
+        shell: bash
+        run: |
+          set -euo pipefail
           if [ -f .factory/verify-production.sh ]; then
             chmod +x .factory/verify-production.sh
             ./.factory/verify-production.sh
