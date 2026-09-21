@@ -1,0 +1,6 @@
+{
+  "schema_version": 1,
+  "provider": "vercel",
+  "project_name": "factory-tasks",
+  "production_access": "public"
+}
